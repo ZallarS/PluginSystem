@@ -8,6 +8,9 @@ class PluginManager
     private $plugins = [];
     private $activePlugins = [];
 
+    // Удаляем неправильное использование ?? в старых версиях PHP
+    private $pluginsDir;
+
     public static function getInstance()
     {
         if (self::$instance === null) {
@@ -16,21 +19,24 @@ class PluginManager
         return self::$instance;
     }
 
+    public function __construct()
+    {
+        // Определяем путь к плагинам один раз
+        $this->pluginsDir = $this->getPluginsDirectory();
+    }
+
     public function loadPlugins()
     {
-        // ИСПРАВЛЕНО: Получаем путь к плагинам из конфигурации
-        $pluginsDir = $this->getPluginsDirectory();
-
-        error_log("PluginManager: Loading plugins from directory: " . $pluginsDir);
+        error_log("PluginManager: Loading plugins from directory: " . $this->pluginsDir);
 
         // Проверяем существование директории
-        if (!is_dir($pluginsDir)) {
-            error_log("PluginManager: Plugins directory does not exist: " . $pluginsDir);
+        if (!is_dir($this->pluginsDir)) {
+            error_log("PluginManager: Plugins directory does not exist: " . $this->pluginsDir);
             return 0;
         }
 
         // Ищем плагины
-        $pluginFolders = glob($pluginsDir . '*', GLOB_ONLYDIR);
+        $pluginFolders = glob($this->pluginsDir . '*', GLOB_ONLYDIR);
         error_log("PluginManager: Found " . count($pluginFolders) . " plugin folders");
 
         foreach ($pluginFolders as $pluginFolder) {
@@ -65,9 +71,6 @@ class PluginManager
                     continue;
                 }
 
-                // Регистрируем автозагрузку для этого плагина
-                $this->registerPluginAutoloader($pluginName, $pluginFolder);
-
                 $this->plugins[$pluginName] = [
                     'path' => $pluginFolder,
                     'config' => $config,
@@ -77,12 +80,6 @@ class PluginManager
                 error_log("Plugin {$pluginName}: registered successfully");
             } else {
                 error_log("PluginManager: Plugin " . $pluginName . " missing required files");
-                if (!file_exists($pluginFile)) {
-                    error_log("PluginManager: Missing Plugin.php");
-                }
-                if (!file_exists($configFile)) {
-                    error_log("PluginManager: Missing plugin.json");
-                }
             }
         }
 
@@ -92,34 +89,24 @@ class PluginManager
 
     private function getPluginsDirectory()
     {
-        // Пытаемся получить путь из конфигурации
-        $configPath = __DIR__ . '/../../app/Config/plugins.php';
-        if (file_exists($configPath)) {
-            $config = require $configPath;
-            if (isset($config['path'])) {
-                return rtrim($config['path'], '/') . '/';
+        // Базовый путь к плагинам
+        $basePath = dirname(__DIR__);
+
+        // Пробуем разные возможные пути
+        $possiblePaths = [
+            $basePath . '/plugins/',
+            $basePath . '/../plugins/',
+            __DIR__ . '/../../plugins/'
+        ];
+
+        foreach ($possiblePaths as $path) {
+            if (is_dir($path)) {
+                return $path;
             }
         }
 
-        // По умолчанию используем базовый путь
-        return dirname(__DIR__) . '/plugins/';
-    }
-
-    private function registerPluginAutoloader($pluginName, $pluginFolder)
-    {
-        spl_autoload_register(function ($className) use ($pluginName, $pluginFolder) {
-            // Если класс принадлежит этому плагину
-            if (strpos($className, $pluginName . '\\') === 0) {
-                $relativeClass = substr($className, strlen($pluginName) + 1);
-                $file = $pluginFolder . '/' . str_replace('\\', '/', $relativeClass) . '.php';
-
-                if (file_exists($file)) {
-                    require $file;
-                    return true;
-                }
-            }
-            return false;
-        });
+        // Если ни один путь не найден, используем первый
+        return $possiblePaths[0];
     }
 
     private function checkRequirements($config)
@@ -143,6 +130,66 @@ class PluginManager
         return true;
     }
 
+    public function activatePlugin($name)
+    {
+        if (isset($this->plugins[$name])) {
+            $pluginData = $this->plugins[$name];
+            $pluginFile = $pluginData['path'] . '/Plugin.php';
+
+            error_log("Activating plugin: {$name}");
+            error_log("Plugin file: {$pluginFile}");
+
+            // Проверяем существование файла плагина
+            if (!file_exists($pluginFile)) {
+                error_log("Plugin file not found: {$pluginFile}");
+                return false;
+            }
+
+            // Загружаем файл плагина
+            try {
+                require_once $pluginFile;
+
+                // Формируем имя класса
+                $className = "{$name}\\Plugin";
+                error_log("Looking for class: {$className}");
+
+                // Проверяем существование класса
+                if (!class_exists($className)) {
+                    // Пробуем альтернативное имя класса (без namespace)
+                    $className = "Plugin{$name}";
+                    error_log("Trying alternative class: {$className}");
+
+                    if (!class_exists($className)) {
+                        error_log("Class not found: {$className}");
+                        return false;
+                    }
+                }
+
+                // Создаем экземпляр плагина
+                $pluginInstance = new $className();
+                $this->activePlugins[$name] = $pluginInstance;
+                $this->plugins[$name]['active'] = true;
+
+                // Вызываем метод init если существует
+                if (method_exists($pluginInstance, 'init')) {
+                    $pluginInstance->init();
+                }
+
+                error_log("Plugin {$name}: activated successfully");
+                return true;
+
+            } catch (\Exception $e) {
+                error_log("Plugin {$name}: failed to activate - " . $e->getMessage());
+                error_log("Exception trace: " . $e->getTraceAsString());
+                return false;
+            }
+        }
+
+        error_log("Plugin not found: {$name}");
+        return false;
+    }
+
+    // Остальные методы остаются без изменений
     public function getPlugins()
     {
         return $this->plugins;
@@ -159,45 +206,6 @@ class PluginManager
             return $this->activePlugins[$name];
         }
         return null;
-    }
-
-    public function activatePlugin($name)
-    {
-        if (isset($this->plugins[$name])) {
-            $pluginData = $this->plugins[$name];
-
-            // Загружаем класс плагина
-            $className = "{$name}\\Plugin";
-
-            if (!class_exists($className)) {
-                // Пытаемся загрузить файл вручную
-                $pluginFile = $pluginData['path'] . '/Plugin.php';
-                if (file_exists($pluginFile)) {
-                    require_once $pluginFile;
-                }
-            }
-
-            if (class_exists($className)) {
-                try {
-                    $pluginInstance = new $className();
-                    $this->activePlugins[$name] = $pluginInstance;
-                    $this->plugins[$name]['active'] = true;
-
-                    // Вызываем метод init если существует
-                    if (method_exists($pluginInstance, 'init')) {
-                        $pluginInstance->init();
-                    }
-
-                    error_log("Plugin {$name}: activated successfully");
-                    return true;
-                } catch (\Exception $e) {
-                    error_log("Plugin {$name}: failed to activate - " . $e->getMessage());
-                }
-            } else {
-                error_log("Plugin {$name}: class {$className} not found");
-            }
-        }
-        return false;
     }
 
     public function deactivatePlugin($name)
