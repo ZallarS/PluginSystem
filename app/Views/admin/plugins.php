@@ -245,6 +245,7 @@ $plugins = $allPlugins; // Используем обновленные данн�
                                     <div class="d-flex justify-content-between">
                                         <?php if ($pluginData['active']): ?>
                                             <form method="POST" action="/admin/plugins/deactivate/<?= htmlspecialchars((string)$pluginName) ?>">
+                                                <?= csrf_field() ?>
                                                 <button type="submit" class="btn btn-sm btn-outline-danger"
                                                         onclick="return confirm('Деактивировать плагин <?= htmlspecialchars((string)$pluginName) ?>?')">
                                                     <i class="bi bi-power"></i> Деактивировать
@@ -252,6 +253,7 @@ $plugins = $allPlugins; // Используем обновленные данн�
                                             </form>
                                         <?php else: ?>
                                             <form method="POST" action="/admin/plugins/activate/<?= htmlspecialchars((string)$pluginName) ?>">
+                                                <?= csrf_field() ?>
                                                 <button type="submit" class="btn btn-sm btn-outline-success">
                                                     <i class="bi bi-power"></i> Активировать
                                                 </button>

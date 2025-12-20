@@ -165,14 +165,16 @@ if (!function_exists('csrf_token')) {
         return $_SESSION['csrf_token'];
     }
 }
-
 if (!function_exists('csrf_field')) {
     /**
      * Генерирует поле CSRF
      */
     function csrf_field()
     {
-        return '<input type="hidden" name="_token" value="' . csrf_token() . '">';
+        if (!isset($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return '<input type="hidden" name="_token" value="' . htmlspecialchars($_SESSION['csrf_token']) . '">';
     }
 }
 
@@ -246,5 +248,70 @@ if (!function_exists('render')) {
     function render($template, $data = [])
     {
         echo template($template, $data);
+    }
+}
+if (!function_exists('add_action')) {
+    /**
+     * Добавить действие (хук)
+     */
+    function add_action($hook, $callback, $priority = 10)
+    {
+        $hookManager = \Core\HookManager::getInstance();
+        $hookManager->addAction($hook, $callback, $priority);
+    }
+}
+
+if (!function_exists('do_action')) {
+    /**
+     * Выполнить действие (хук)
+     */
+    function do_action($hook, ...$args)
+    {
+        $hookManager = \Core\HookManager::getInstance();
+        $hookManager->doAction($hook, ...$args);
+    }
+}
+
+if (!function_exists('add_filter')) {
+    /**
+     * Добавить фильтр
+     */
+    function add_filter($filter, $callback, $priority = 10)
+    {
+        $hookManager = \Core\HookManager::getInstance();
+        $hookManager->addFilter($filter, $callback, $priority);
+    }
+}
+
+if (!function_exists('apply_filters')) {
+    /**
+     * Применить фильтр
+     */
+    function apply_filters($filter, $value, ...$args)
+    {
+        $hookManager = \Core\HookManager::getInstance();
+        return $hookManager->applyFilter($filter, $value, ...$args);
+    }
+}
+
+if (!function_exists('has_action')) {
+    /**
+     * Проверить наличие действия
+     */
+    function has_action($hook)
+    {
+        $hookManager = \Core\HookManager::getInstance();
+        return $hookManager->hasAction($hook);
+    }
+}
+
+if (!function_exists('has_filter')) {
+    /**
+     * Проверить наличие фильтра
+     */
+    function has_filter($filter)
+    {
+        $hookManager = \Core\HookManager::getInstance();
+        return $hookManager->hasFilter($filter);
     }
 }

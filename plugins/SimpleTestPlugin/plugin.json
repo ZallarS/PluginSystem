@@ -1,0 +1,10 @@
+{
+  "name": "SimpleTestPlugin",
+  "description": "Простой тестовый плагин для демонстрации работы системы плагинов",
+  "version": "1.0.0",
+  "author": "System Administrator",
+  "namespace": "Plugins\\SimpleTestPlugin",
+  "requires": {
+    "php": "7.4"
+  }
+}

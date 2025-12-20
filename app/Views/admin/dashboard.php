@@ -182,40 +182,26 @@ $message = $message ?? 'Добро пожаловать в панель упра
                 </h1>
             </div>
 
+            <!-- Хук: dashboard_top -->
+            <?php do_action('dashboard_top'); ?>
+
+            <!-- Хук: dashboard_before_welcome -->
+            <?php do_action('dashboard_before_welcome'); ?>
+
             <!-- Информационный блок (не будет автоматически скрываться) -->
             <div class="alert alert-info">
                 <h4><i class="bi bi-info-circle"></i> Добро пожаловать в панель администратора!</h4>
                 <p><?= htmlspecialchars((string)$message) ?></p>
             </div>
 
-            <div class="row">
-                <div class="col-md-4 mb-4">
-                    <div class="card bg-primary text-white">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="card-title mb-0">Система</h6>
-                                    <h4 class="mb-0">MVC Framework</h4>
-                                </div>
-                                <i class="bi bi-gear display-4 opacity-50"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <!-- Хук: dashboard_after_welcome -->
+            <?php do_action('dashboard_after_welcome'); ?>
 
-                <div class="col-md-4 mb-4">
-                    <div class="card bg-success text-white">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="card-title mb-0">Статус</h6>
-                                    <h4 class="mb-0">Активен</h4>
-                                </div>
-                                <i class="bi bi-check-circle display-4 opacity-50"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <!-- Хук: dashboard_before_stats -->
+            <?php do_action('dashboard_before_stats'); ?>
+
+            <div class="row">
+
 
                 <div class="col-md-4 mb-4">
                     <div class="card bg-warning text-white">
@@ -223,7 +209,7 @@ $message = $message ?? 'Добро пожаловать в панель упра
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="card-title mb-0">Плагины</h6>
-                                    <h4 class="mb-0">0</h4>
+                                    <h4 class="mb-0"><?= count($plugins ?? []) ?></h4>
                                 </div>
                                 <i class="bi bi-plug display-4 opacity-50"></i>
                             </div>
@@ -235,56 +221,20 @@ $message = $message ?? 'Добро пожаловать в панель упра
                         </div>
                     </div>
                 </div>
+
+                <!-- Хук: dashboard_stats -->
+                <?php do_action('dashboard_stats'); ?>
             </div>
+
+            <!-- Хук: dashboard_after_stats -->
+            <?php do_action('dashboard_after_stats'); ?>
 
             <div class="row">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <i class="bi bi-clock-history me-2"></i> Последние действия
-                        </div>
-                        <div class="card-body">
-                            <ul class="list-group list-group-flush">
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <span>
-                                            <i class="bi bi-person-check text-success me-2"></i>
-                                            <strong>Вы</strong> вошли в систему
-                                        </span>
-                                    <small class="text-muted">Только что</small>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <span>
-                                            <i class="bi bi-arrow-right-circle text-primary me-2"></i>
-                                            Доступ к панели управления
-                                        </span>
-                                    <small class="text-muted">Только что</small>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <i class="bi bi-lightning me-2"></i> Быстрые действия
-                        </div>
-                        <div class="card-body">
-                            <div class="d-grid gap-2">
-                                <a href="/admin/plugins" class="btn btn-outline-primary">
-                                    <i class="bi bi-plug"></i> Управление плагинами
-                                </a>
-                                <a href="/" target="_blank" class="btn btn-outline-secondary">
-                                    <i class="bi bi-eye"></i> Просмотр сайта
-                                </a>
-                                <a href="/logout" class="btn btn-outline-danger">
-                                    <i class="bi bi-box-arrow-right"></i> Выйти из системы
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
+
+            <!-- Хук: dashboard_bottom -->
+            <?php do_action('dashboard_bottom'); ?>
         </main>
     </div>
 </div>

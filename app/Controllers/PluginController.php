@@ -6,10 +6,10 @@ class PluginController extends BaseController
 {
     public function index()
     {
-        // ВРЕМЕННО ОТКЛЮЧАЕМ ПРОВЕРКУ
-        // if (!isset($_SESSION['user_id'])) {
-        //     $this->redirect('/login');
-        // }
+        if (!isset($_SESSION['user_id'])) {
+            $this->redirect('/login');
+            return;
+        }
 
         $pluginManager = \Plugins\PluginManager::getInstance();
         $plugins = $pluginManager->getPlugins();
@@ -22,12 +22,31 @@ class PluginController extends BaseController
 
     public function activate($pluginName)
     {
+        // Проверка CSRF токена
+        if (!isset($_POST['_token']) || $_POST['_token'] !== ($_SESSION['csrf_token'] ?? '')) {
+            $_SESSION['flash_error'] = "Недействительный CSRF токен";
+            $this->redirect('/admin/plugins');
+            return;
+        }
+
         if (!isset($_SESSION['user_id'])) {
+            $_SESSION['flash_error'] = "Требуется авторизация";
             $this->redirect('/login');
+            return;
         }
 
         $pluginManager = \Plugins\PluginManager::getInstance();
+
+        if (!$pluginManager->pluginExists($pluginName)) {
+            $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
+            $this->redirect('/admin/plugins');
+            return;
+        }
+
         $result = $pluginManager->activatePlugin($pluginName);
+
+        // Перезагружаем статусы плагинов
+        $pluginManager->reloadActivePlugins();
 
         if ($result) {
             $_SESSION['flash_message'] = "Плагин {$pluginName} успешно активирован";
@@ -38,14 +57,34 @@ class PluginController extends BaseController
         $this->redirect('/admin/plugins');
     }
 
+
     public function deactivate($pluginName)
     {
+        // Проверка CSRF токена
+        if (!isset($_POST['_token']) || $_POST['_token'] !== ($_SESSION['csrf_token'] ?? '')) {
+            $_SESSION['flash_error'] = "Недействительный CSRF токен";
+            $this->redirect('/admin/plugins');
+            return;
+        }
+
         if (!isset($_SESSION['user_id'])) {
+            $_SESSION['flash_error'] = "Требуется авторизация";
             $this->redirect('/login');
+            return;
         }
 
         $pluginManager = \Plugins\PluginManager::getInstance();
+
+        if (!$pluginManager->pluginExists($pluginName)) {
+            $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
+            $this->redirect('/admin/plugins');
+            return;
+        }
+
         $result = $pluginManager->deactivatePlugin($pluginName);
+
+        // Перезагружаем статусы плагинов
+        $pluginManager->reloadActivePlugins();
 
         if ($result) {
             $_SESSION['flash_message'] = "Плагин {$pluginName} успешно деактивирован";

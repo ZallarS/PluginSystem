@@ -2,19 +2,61 @@
 
 namespace Core;
 
+use Core\Router\Router;
+
 class Core
 {
     private static $instance;
     private $router;
     private $config = [];
     private $pluginManager;
+    private $hookManager;
 
     public function __construct()
     {
         self::$instance = $this;
         $this->loadConfig();
+        $this->initHookManager(); // <-- Добавьте эту строку
         $this->initRouter();
         $this->initPlugins();
+    }
+
+    private function registerDashboardHooks()
+    {
+        // Основные хуки для дашборда
+        $dashboardHooks = [
+            'dashboard_top',
+            'dashboard_before_welcome',
+            'dashboard_after_welcome',
+            'dashboard_stats',
+            'dashboard_before_stats',
+            'dashboard_after_stats',
+            'dashboard_actions',
+            'dashboard_before_actions',
+            'dashboard_after_actions',
+            'dashboard_recent_activity',
+            'dashboard_bottom',
+            'dashboard_sidebar'
+        ];
+
+        foreach ($dashboardHooks as $hook) {
+            $this->hookManager->addAction($hook, function() {
+                // Пустой колбек по умолчанию
+            });
+        }
+    }
+
+    public function getHookManager()
+    {
+        return $this->hookManager;
+    }
+
+    private function initHookManager()
+    {
+        $this->hookManager = \Core\HookManager::getInstance();
+
+        // Регистрируем базовые хуки дашборда
+        $this->registerDashboardHooks();
     }
 
     public static function getInstance()
@@ -27,7 +69,6 @@ class Core
 
     private function loadConfig()
     {
-        // Загрузка базовой конфигурации
         $configPath = __DIR__ . '/../app/Config/app.php';
         if (file_exists($configPath)) {
             $this->config = require $configPath;
@@ -42,28 +83,22 @@ class Core
 
     private function initRouter()
     {
-        $this->router = new Router\Router();
+        $this->router = new Router();
 
         // Базовые маршруты
-        $this->router->addRoute('GET', '/', 'App\\Controllers\\HomeController@index');
-        $this->router->addRoute('GET', '/admin', 'App\\Controllers\\AdminController@dashboard');
+        $this->router->get('/', 'App\\Controllers\\HomeController@index');
+        $this->router->get('/admin', 'App\\Controllers\\AdminController@dashboard');
 
         // Аутентификация
-        $this->router->addRoute('GET', '/login', 'App\\Controllers\\AuthController@login');
-        $this->router->addRoute('POST', '/login', 'App\\Controllers\\AuthController@login');
-        $this->router->addRoute('GET', '/logout', 'App\\Controllers\\AuthController@logout');
-        $this->router->addRoute('GET', '/quick-login', 'App\\Controllers\\AuthController@quickLogin');
+        $this->router->get('/login', 'App\\Controllers\\AuthController@login');
+        $this->router->post('/login', 'App\\Controllers\\AuthController@login');
+        $this->router->get('/logout', 'App\\Controllers\\AuthController@logout');
+        $this->router->get('/quick-login', 'App\\Controllers\\AuthController@quickLogin');
 
         // Управление плагинами
-        $this->router->addRoute('GET', '/admin/plugins', 'App\\Controllers\\PluginController@index');
-        $this->router->addRoute('POST', '/admin/plugins/activate/{pluginName}', 'App\\Controllers\\PluginController@activate');
-        $this->router->addRoute('POST', '/admin/plugins/deactivate/{pluginName}', 'App\\Controllers\\PluginController@deactivate');
-
-        // ПРОСТЕЙШИЙ ТЕСТОВЫЙ МАРШРУТ
-        $this->router->addRoute('GET', '/simple-test', function() {
-            echo "SIMPLE TEST WORKS!";
-            exit;
-        });
+        $this->router->get('/admin/plugins', 'App\\Controllers\\PluginController@index');
+        $this->router->post('/admin/plugins/activate/{pluginName}', 'App\\Controllers\\PluginController@activate');
+        $this->router->post('/admin/plugins/deactivate/{pluginName}', 'App\\Controllers\\PluginController@deactivate');
 
         error_log("Base routes registered");
     }
@@ -71,7 +106,7 @@ class Core
     private function initPlugins()
     {
         // Загружаем конфигурацию плагинов
-        $pluginsConfigPath = __DIR__ . '/../Config/plugins.php';
+        $pluginsConfigPath = __DIR__ . '/../app/Config/plugins.php';
         if (file_exists($pluginsConfigPath)) {
             $pluginsConfig = require $pluginsConfigPath;
 
@@ -86,22 +121,13 @@ class Core
         // Создаем менеджер плагинов
         $this->pluginManager = \Plugins\PluginManager::getInstance();
 
-        // Загружаем плагины
+        // Загружаем плагины (активные загрузятся автоматически)
         $pluginsRegistered = $this->pluginManager->loadPlugins();
         error_log("Core: Plugins registered: " . $pluginsRegistered);
 
-        // Получаем все плагины и активируем те, что должны быть активны по умолчанию
+        // Получаем все плагины
         $plugins = $this->pluginManager->getPlugins();
         error_log("Core: Total plugins: " . count($plugins));
-
-        // Активируем плагины
-        foreach ($plugins as $pluginName => $pluginData) {
-            // Здесь можно добавить логику активации по умолчанию
-            // Например, из базы данных или конфигурации
-            if (isset($pluginData['config']['default_active']) && $pluginData['config']['default_active']) {
-                $this->pluginManager->activatePlugin($pluginName);
-            }
-        }
 
         // Получаем активные плагины
         $activePlugins = $this->pluginManager->getActivePlugins();
@@ -110,11 +136,11 @@ class Core
         // Для каждого активного плагина вызываем метод registerRoutes если он существует
         foreach ($activePlugins as $pluginName => $plugin) {
             error_log("Core: Processing plugin routes for: " . $pluginName);
-            if (method_exists($plugin, 'registerRoutes')) {
+            if ($plugin && method_exists($plugin, 'registerRoutes')) {
                 $plugin->registerRoutes($this->router);
                 error_log("Plugin {$pluginName}: routes registered");
             } else {
-                error_log("Plugin {$pluginName}: registerRoutes method not found");
+                error_log("Plugin {$pluginName}: registerRoutes method not found or plugin not loaded");
             }
         }
     }
@@ -128,20 +154,6 @@ class Core
         }
 
         $this->router->dispatch();
-    }
-
-    private function handleException($exception)
-    {
-        http_response_code(500);
-
-        if (isset($this->config['debug']) && $this->config['debug']) {
-            echo "<h1>Error: " . $exception->getMessage() . "</h1>";
-            echo "<pre>" . htmlspecialchars($exception->getTraceAsString()) . "</pre>";
-        } else {
-            echo "An error occurred. Please try again later.";
-        }
-
-        error_log("Core Exception: " . $exception->getMessage());
     }
 
     public function getRouter()

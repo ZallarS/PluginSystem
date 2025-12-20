@@ -17,6 +17,41 @@ if (!file_exists($autoloader)) {
 
 require_once $autoloader;
 
+// Регистрируем автозагрузчик для плагинов
+spl_autoload_register(function ($class) {
+    // Если класс начинается с Plugins\
+    if (strpos($class, 'Plugins\\') === 0) {
+        $classPath = str_replace('\\', '/', $class);
+        $file = __DIR__ . '/../' . $classPath . '.php';
+
+        if (file_exists($file)) {
+            require_once $file;
+            return true;
+        }
+    }
+
+    // Также пробуем загрузить из папки plugins
+    $pluginsDir = __DIR__ . '/../plugins/';
+    $classParts = explode('\\', $class);
+    $className = end($classParts);
+
+    // Пробуем найти файл Plugin.php в папке с именем класса
+    $possiblePaths = [
+        $pluginsDir . $class . '/Plugin.php',
+        $pluginsDir . str_replace('\\', '/', $class) . '/Plugin.php',
+        $pluginsDir . $className . '/Plugin.php',
+    ];
+
+    foreach ($possiblePaths as $file) {
+        if (file_exists($file)) {
+            require_once $file;
+            return true;
+        }
+    }
+
+    return false;
+});
+
 // Начинаем сессию
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
