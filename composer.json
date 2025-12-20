@@ -1,0 +1,21 @@
+{
+    "name": "your-vendor/mvc-system",
+    "description": "MVC система с плагинами на PHP",
+    "type": "project",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Core\\": "core/",
+            "App\\": "app/",
+            "Plugins\\": "plugins/",
+            "HelloWorld\\": "plugins/HelloWorld/"
+        }
+    },
+    "require": {
+        "php": ">=7.4",
+        "ext-json": "*",
+        "ext-mbstring": "*"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

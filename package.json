@@ -1,0 +1,6 @@
+{
+    "name": "my-mvc-system",
+    "version": "1.0.0",
+    "description": "Frontend dependencies for MVC system",
+    "private": true
+}
