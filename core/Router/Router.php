@@ -17,10 +17,36 @@ class Router
         $this->addRoute('POST', $uri, $action);
     }
 
-    private function addRoute($method, $uri, $action)
+    public function addRoute($method, $uri, $action)
     {
-        $this->routes[] = new Route($method, $uri, $action);
-        error_log("Route added: {$method} {$uri} -> " . (is_string($action) ? $action : 'callback'));
+        if (is_array($method)) {
+            foreach ($method as $m) {
+                $this->routes[] = new Route($m, $uri, $action);
+                error_log("Route added: {$m} {$uri} -> " . (is_string($action) ? $action : 'callback'));
+            }
+        } else {
+            $this->routes[] = new Route($method, $uri, $action);
+            error_log("Route added: {$method} {$uri} -> " . (is_string($action) ? $action : 'callback'));
+        }
+    }
+    public function put($uri, $action)
+    {
+        $this->addRoute('PUT', $uri, $action);
+    }
+
+    public function patch($uri, $action)
+    {
+        $this->addRoute('PATCH', $uri, $action);
+    }
+
+    public function delete($uri, $action)
+    {
+        $this->addRoute('DELETE', $uri, $action);
+    }
+
+    public function any($uri, $action)
+    {
+        $this->addRoute(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], $uri, $action);
     }
 
     public function dispatch()
@@ -136,4 +162,5 @@ class Router
         }
         return false;
     }
+
 }

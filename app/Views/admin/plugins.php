@@ -1,7 +1,21 @@
 <?php
+// Подключаем менеджер плагинов
+use Plugins\PluginManager;
+
+// Получаем экземпляр менеджера плагинов
+$pluginManager = PluginManager::getInstance();
+$allPlugins = $pluginManager->getPlugins();
+$activePlugins = $pluginManager->getActivePlugins();
+
+// Обновляем статус активности в данных плагинов
+foreach ($allPlugins as $pluginName => &$pluginData) {
+    $pluginData['active'] = isset($activePlugins[$pluginName]);
+}
+unset($pluginData); // Разрываем ссылку
+
 // Устанавливаем значения по умолчанию для переменных
 $title = $title ?? 'Управление плагинами';
-$plugins = $plugins ?? [];
+$plugins = $allPlugins; // Используем обновленные данные плагинов
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -180,6 +194,14 @@ $plugins = $plugins ?? [];
                     <i class="bi bi-plug"></i> <?= htmlspecialchars((string)$title) ?>
                 </h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <span class="badge bg-primary">
+                            Всего: <?= count($plugins) ?>
+                        </span>
+                        <span class="badge bg-success ms-1">
+                            Активных: <?= count($activePlugins) ?>
+                        </span>
+                    </div>
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#installModal">
                         <i class="bi bi-download"></i> Установить плагин
                     </button>
@@ -198,8 +220,8 @@ $plugins = $plugins ?? [];
                                             <?= htmlspecialchars((string)$pluginName) ?>
                                         </h5>
                                         <span class="badge <?= $pluginData['active'] ? 'bg-success' : 'bg-secondary' ?> plugin-status">
-                                                <?= $pluginData['active'] ? 'Активен' : 'Неактивен' ?>
-                                            </span>
+                                            <?= $pluginData['active'] ? 'Активен' : 'Неактивен' ?>
+                                        </span>
                                     </div>
 
                                     <p class="card-text text-muted small">
@@ -213,8 +235,8 @@ $plugins = $plugins ?? [];
 
                                         <?php if (isset($pluginData['config']['author'])): ?>
                                             <span class="text-muted small">
-                                                    <i class="bi bi-person"></i> <?= htmlspecialchars((string)$pluginData['config']['author']) ?>
-                                                </span>
+                                                <i class="bi bi-person"></i> <?= htmlspecialchars((string)$pluginData['config']['author']) ?>
+                                            </span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -284,6 +306,14 @@ $plugins = $plugins ?? [];
                     <li>Установку по URL</li>
                     <li>Магазин плагинов</li>
                 </ul>
+                <hr>
+                <h6>Ручная установка плагина:</h6>
+                <ol>
+                    <li>Создайте папку плагина в <code>/plugins/ИмяПлагина/</code></li>
+                    <li>Создайте файл <code>Plugin.php</code> с классом плагина</li>
+                    <li>Создайте файл <code>plugin.json</code> с конфигурацией</li>
+                    <li>Обновите страницу</li>
+                </ol>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
@@ -325,52 +355,72 @@ $plugins = $plugins ?? [];
             document.getElementById('pluginDetailsTitle').textContent = 'Плагин: ' + pluginName;
 
             let html = `
-                    <div class="mb-3">
-                        <strong>Название:</strong><br>
-                        ${pluginConfig.name || pluginName}
-                    </div>
+                <div class="mb-3">
+                    <strong>Название:</strong><br>
+                    ${pluginConfig.name || pluginName}
+                </div>
 
-                    <div class="mb-3">
-                        <strong>Описание:</strong><br>
-                        ${pluginConfig.description || 'Отсутствует'}
-                    </div>
+                <div class="mb-3">
+                    <strong>Описание:</strong><br>
+                    ${pluginConfig.description || 'Отсутствует'}
+                </div>
 
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <strong>Версия:</strong><br>
-                                ${pluginConfig.version || 'Не указана'}
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <strong>Автор:</strong><br>
-                                ${pluginConfig.author || 'Не указан'}
-                            </div>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <strong>Версия:</strong><br>
+                            ${pluginConfig.version || 'Не указана'}
                         </div>
                     </div>
-                `;
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <strong>Автор:</strong><br>
+                            ${pluginConfig.author || 'Не указан'}
+                        </div>
+                    </div>
+                </div>
+            `;
 
             if (pluginConfig.requires) {
                 html += `
-                        <div class="mb-3">
-                            <strong>Требования:</strong><br>
-                            <ul class="mb-0">
-                    `;
+                    <div class="mb-3">
+                        <strong>Требования:</strong><br>
+                        <ul class="mb-0">
+                `;
 
                 for (const [key, value] of Object.entries(pluginConfig.requires)) {
                     html += `<li><code>${key}: ${value}</code></li>`;
                 }
 
                 html += `
-                            </ul>
-                        </div>
-                    `;
+                        </ul>
+                    </div>
+                `;
             }
+
+            // Добавляем информацию о пути
+            html += `
+                <div class="mb-3">
+                    <strong>Путь к плагину:</strong><br>
+                    <code>${button.closest('.plugin-card').querySelector('.btn-outline-info').getAttribute('data-plugin-path') || 'Не указан'}</code>
+                </div>
+            `;
 
             document.getElementById('pluginDetailsContent').innerHTML = html;
         });
     }
+
+    // Добавляем путь к плагину в data-атрибут кнопки "Подробнее"
+    document.addEventListener('DOMContentLoaded', function() {
+        const infoButtons = document.querySelectorAll('.btn-outline-info[data-bs-target="#detailsModal"]');
+        infoButtons.forEach(button => {
+            const pluginName = button.getAttribute('data-plugin-name');
+            // Здесь можно добавить путь к плагину, если он есть в DOM
+            const card = button.closest('.plugin-card');
+            const pluginTitle = card.querySelector('.card-title').textContent.trim();
+            button.setAttribute('data-plugin-path', '/plugins/' + pluginName);
+        });
+    });
 </script>
 </body>
 </html>

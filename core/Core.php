@@ -19,6 +19,9 @@ class Core
 
     public static function getInstance()
     {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
         return self::$instance;
     }
 
@@ -42,22 +45,22 @@ class Core
         $this->router = new Router\Router();
 
         // Базовые маршруты
-        $this->router->get('/', 'App\\Controllers\\HomeController@index');
-        $this->router->get('/admin', 'App\\Controllers\\AdminController@dashboard');
+        $this->router->addRoute('GET', '/', 'App\\Controllers\\HomeController@index');
+        $this->router->addRoute('GET', '/admin', 'App\\Controllers\\AdminController@dashboard');
 
         // Аутентификация
-        $this->router->get('/login', 'App\\Controllers\\AuthController@login');
-        $this->router->post('/login', 'App\\Controllers\\AuthController@login');
-        $this->router->get('/logout', 'App\\Controllers\\AuthController@logout');
-        $this->router->get('/quick-login', 'App\\Controllers\\AuthController@quickLogin');
+        $this->router->addRoute('GET', '/login', 'App\\Controllers\\AuthController@login');
+        $this->router->addRoute('POST', '/login', 'App\\Controllers\\AuthController@login');
+        $this->router->addRoute('GET', '/logout', 'App\\Controllers\\AuthController@logout');
+        $this->router->addRoute('GET', '/quick-login', 'App\\Controllers\\AuthController@quickLogin');
 
         // Управление плагинами
-        $this->router->get('/admin/plugins', 'App\\Controllers\\PluginController@index');
-        $this->router->post('/admin/plugins/activate/{pluginName}', 'App\\Controllers\\PluginController@activate');
-        $this->router->post('/admin/plugins/deactivate/{pluginName}', 'App\\Controllers\\PluginController@deactivate');
+        $this->router->addRoute('GET', '/admin/plugins', 'App\\Controllers\\PluginController@index');
+        $this->router->addRoute('POST', '/admin/plugins/activate/{pluginName}', 'App\\Controllers\\PluginController@activate');
+        $this->router->addRoute('POST', '/admin/plugins/deactivate/{pluginName}', 'App\\Controllers\\PluginController@deactivate');
 
         // ПРОСТЕЙШИЙ ТЕСТОВЫЙ МАРШРУТ
-        $this->router->get('/simple-test', function() {
+        $this->router->addRoute('GET', '/simple-test', function() {
             echo "SIMPLE TEST WORKS!";
             exit;
         });
@@ -67,25 +70,51 @@ class Core
 
     private function initPlugins()
     {
-        if (!($this->config['plugins_enabled'] ?? true)) {
-            return;
+        // Загружаем конфигурацию плагинов
+        $pluginsConfigPath = __DIR__ . '/../Config/plugins.php';
+        if (file_exists($pluginsConfigPath)) {
+            $pluginsConfig = require $pluginsConfigPath;
+
+            if (!isset($pluginsConfig['enabled']) || !$pluginsConfig['enabled']) {
+                error_log("Core: Plugins are disabled in config");
+                return;
+            }
         }
+
+        error_log("Core: Initializing plugins...");
 
         // Создаем менеджер плагинов
         $this->pluginManager = \Plugins\PluginManager::getInstance();
 
         // Загружаем плагины
-        $pluginsLoaded = $this->pluginManager->loadPlugins();
-        error_log("Plugins loaded: " . $pluginsLoaded);
+        $pluginsRegistered = $this->pluginManager->loadPlugins();
+        error_log("Core: Plugins registered: " . $pluginsRegistered);
 
-        // Получаем все плагины
-        $plugins = $this->pluginManager->getActivePlugins();
+        // Получаем все плагины и активируем те, что должны быть активны по умолчанию
+        $plugins = $this->pluginManager->getPlugins();
+        error_log("Core: Total plugins: " . count($plugins));
 
-        // Для каждого плагина вызываем метод registerRoutes если он существует
-        foreach ($plugins as $pluginName => $plugin) {
+        // Активируем плагины
+        foreach ($plugins as $pluginName => $pluginData) {
+            // Здесь можно добавить логику активации по умолчанию
+            // Например, из базы данных или конфигурации
+            if (isset($pluginData['config']['default_active']) && $pluginData['config']['default_active']) {
+                $this->pluginManager->activatePlugin($pluginName);
+            }
+        }
+
+        // Получаем активные плагины
+        $activePlugins = $this->pluginManager->getActivePlugins();
+        error_log("Core: Active plugins count: " . count($activePlugins));
+
+        // Для каждого активного плагина вызываем метод registerRoutes если он существует
+        foreach ($activePlugins as $pluginName => $plugin) {
+            error_log("Core: Processing plugin routes for: " . $pluginName);
             if (method_exists($plugin, 'registerRoutes')) {
                 $plugin->registerRoutes($this->router);
-                error_log("Plugin {$pluginName}: routes registered via registerRoutes method");
+                error_log("Plugin {$pluginName}: routes registered");
+            } else {
+                error_log("Plugin {$pluginName}: registerRoutes method not found");
             }
         }
     }
@@ -105,7 +134,7 @@ class Core
     {
         http_response_code(500);
 
-        if ($this->config['debug'] ?? true) {
+        if (isset($this->config['debug']) && $this->config['debug']) {
             echo "<h1>Error: " . $exception->getMessage() . "</h1>";
             echo "<pre>" . htmlspecialchars($exception->getTraceAsString()) . "</pre>";
         } else {
