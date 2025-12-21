@@ -29,7 +29,7 @@ class UserRepository
                 }
             } catch (PDOException $e) {
                 // В режиме debug логируем
-                if (env('APP_DEBUG')) {
+                if (env('APP_DEBUG', false)) {
                     error_log("UserRepository DB error: " . $e->getMessage());
                 }
             }
@@ -47,29 +47,25 @@ class UserRepository
 
     public function find(int $id): ?User
     {
-        // Если есть БД, ищем в ней
-        if ($this->hasDatabase && $this->connection) {
+        // 1. Пробуем БД если есть соединение
+        if ($this->connection) {
             try {
                 $stmt = $this->connection->prepare("SELECT * FROM users WHERE id = ?");
                 $stmt->execute([$id]);
-                $data = $stmt->fetch();
 
-                if ($data) {
+                if ($data = $stmt->fetch()) {
                     return User::createFromArray($data);
                 }
             } catch (PDOException $e) {
-                error_log("UserRepository: Error finding user by ID: " . $e->getMessage());
+                if (env('APP_DEBUG', false)) {
+                    error_log("UserRepository DB error: " . $e->getMessage());
+                }
             }
         }
 
-        // Fallback: только администратор с ID 1
+        // 2. Fallback: только администратор с ID 1
         if ($id === 1) {
-            $adminUsername = env('ADMIN_USERNAME', 'admin');
-            $adminPassword = env('ADMIN_PASSWORD', 'admin');
-            $user = new User($adminUsername, $adminPassword, true);
-            $userData = $user->toArray();
-            $userData['id'] = 1;
-            return User::createFromArray($userData);
+            return $this->createAdminUser();
         }
 
         return null;
@@ -97,7 +93,7 @@ class UserRepository
     public function save(User $user): bool
     {
         // Если нет БД, просто возвращаем true для совместимости
-        if (!$this->hasDatabase || !$this->connection) {
+        if (!$this->connection) {
             return true;
         }
 
@@ -131,14 +127,16 @@ class UserRepository
                 return $result;
             }
         } catch (PDOException $e) {
-            error_log("UserRepository: Error saving user: " . $e->getMessage());
+            if (env('APP_DEBUG', false)) {
+                error_log("UserRepository: Error saving user: " . $e->getMessage());
+            }
             return false;
         }
     }
 
     public function createTable(): void
     {
-        if (!$this->hasDatabase || !$this->connection) {
+        if (!$this->connection) {
             return;
         }
 
@@ -164,29 +162,12 @@ class UserRepository
             if ($stmt->fetchColumn() === 0) {
                 $adminPassword = env('ADMIN_PASSWORD', 'admin');
                 $admin = new User($adminUsername, $adminPassword, true);
-                $this->insertUser($admin);
+                $this->save($admin);
             }
         } catch (PDOException $e) {
-            error_log("UserRepository: Error creating table: " . $e->getMessage());
-            throw $e;
+            if (env('APP_DEBUG', false)) {
+                error_log("UserRepository: Error creating table: " . $e->getMessage());
+            }
         }
-    }
-
-    private function insertUser(User $user): void
-    {
-        if (!$this->hasDatabase || !$this->connection) {
-            return;
-        }
-
-        $sql = "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)";
-        $stmt = $this->connection->prepare($sql);
-        $data = $user->toArray();
-        $stmt->execute([
-            $data['username'],
-            $data['password_hash'],
-            $data['is_admin']
-        ]);
-
-        $user->id = (int)$this->connection->lastInsertId();
     }
 }

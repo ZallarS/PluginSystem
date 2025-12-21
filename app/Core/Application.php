@@ -5,6 +5,7 @@ namespace App\Core;
 
 use App\Core\Container\Container;
 use App\Core\Routing\Router;
+use App\Core\Logger;
 
 class Application
 {
@@ -52,7 +53,7 @@ class Application
                 return \App\Core\Widgets\WidgetManager::getInstance();
             });
 
-            // Упрощенная регистрация PDO - только если есть настройки
+            // Упрощенная регистрация PDO - только если есть настройки БД
             if (env('DB_HOST') && env('DB_DATABASE')) {
                 $this->container->singleton(\PDO::class, function() {
                     try {
@@ -63,7 +64,7 @@ class Application
                             env('DB_DATABASE')
                         );
 
-                        return new \PDO(
+                        $pdo = new \PDO(
                             $dsn,
                             env('DB_USERNAME', 'root'),
                             env('DB_PASSWORD', ''),
@@ -73,11 +74,19 @@ class Application
                                 \PDO::ATTR_EMULATE_PREPARES => false
                             ]
                         );
+
+                        // Проверяем соединение
+                        $pdo->query('SELECT 1');
+                        return $pdo;
+
                     } catch (\PDOException $e) {
                         // Возвращаем null вместо выбрасывания исключения
                         return null;
                     }
                 });
+            } else {
+                // Если нет настроек БД, регистрируем null
+                $this->container->instance(\PDO::class, null);
             }
 
             // Регистрируем UserRepository с проверкой PDO
@@ -92,10 +101,20 @@ class Application
                 return new \App\Services\AuthService($userRepository);
             });
 
+            // Регистрируем TemplateEngine
+            $this->container->singleton(\App\Core\View\TemplateEngine::class, function() {
+                return new \App\Core\View\TemplateEngine();
+            });
+
+            // Регистрируем ControllerFactory
+            $this->container->singleton(\App\Core\ControllerFactory::class, function($container) {
+                return new \App\Core\ControllerFactory($container);
+            });
+
         } catch (\Exception $e) {
-            // Логируем, но не падаем
-            if (env('APP_DEBUG')) {
-                error_log("Application: Error in bindings: " . $e->getMessage());
+            // Логируем только в режиме отладки
+            if (env('APP_DEBUG', false)) {
+                Logger::getInstance()->error("Application: Error in bindings", ['exception' => $e->getMessage()]);
             }
         }
     }

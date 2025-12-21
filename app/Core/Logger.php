@@ -11,8 +11,14 @@ class Logger
 
     private function __construct()
     {
-        $this->logFile = storage_path('logs/app.log');
+        $this->logFile = dirname(__DIR__, 2) . '/storage/logs/app.log';
         $this->debugMode = env('APP_DEBUG', false);
+
+        // Создаем директорию логов если ее нет
+        $logDir = dirname($this->logFile);
+        if (!file_exists($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
     }
 
     public static function getInstance(): self
@@ -56,5 +62,10 @@ class Logger
         );
 
         file_put_contents($this->logFile, $logLine, FILE_APPEND);
+
+        // В режиме отладки также выводим в error_log
+        if ($this->debugMode && $level === 'ERROR') {
+            error_log(trim($logLine));
+        }
     }
 }

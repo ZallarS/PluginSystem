@@ -19,10 +19,12 @@ class ControllerFactory
 
     public function create(string $controllerClass): Controller
     {
+        // Получаем TemplateEngine из контейнера или создаем новый
         $template = $this->container->has(TemplateEngine::class)
             ? $this->container->get(TemplateEngine::class)
             : new TemplateEngine();
 
+        // Получаем AuthService из контейнера (может быть null)
         $authService = $this->container->has(AuthService::class)
             ? $this->container->get(AuthService::class)
             : null;

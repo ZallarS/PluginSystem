@@ -70,23 +70,8 @@ class Router
                 throw new \Exception("Controller class not found: {$controller}");
             }
 
-            // Получаем Application и создаем контроллер через фабрику
-            $app = \App\Core\Application::getInstance();
-            if ($app && method_exists($app, 'getContainer')) {
-                $container = $app->getContainer();
-
-                // Если есть фабрика в контейнере, используем ее
-                if ($container && $container->has(\App\Core\ControllerFactory::class)) {
-                    $factory = $container->get(\App\Core\ControllerFactory::class);
-                    $controllerInstance = $factory->create($controller);
-                } else {
-                    // Fallback: создаем напрямую
-                    $controllerInstance = new $controller();
-                }
-            } else {
-                // Fallback: создаем напрямую
-                $controllerInstance = new $controller();
-            }
+            // Пытаемся создать контроллер через фабрику
+            $controllerInstance = $this->createController($controller);
 
             if (method_exists($controllerInstance, $method)) {
                 return call_user_func_array([$controllerInstance, $method], array_values($parameters));
@@ -98,6 +83,34 @@ class Router
         }
 
         throw new \Exception("Invalid route action");
+    }
+
+    private function createController(string $controllerClass)
+    {
+        // Получаем Application
+        $app = \App\Core\Application::getInstance();
+
+        if (!$app) {
+            return new $controllerClass();
+        }
+
+        $container = $app->getContainer();
+
+        // Если есть фабрика в контейнере, используем ее
+        if ($container && $container->has(\App\Core\ControllerFactory::class)) {
+            try {
+                $factory = $container->get(\App\Core\ControllerFactory::class);
+                return $factory->create($controllerClass);
+            } catch (\Exception $e) {
+                // В случае ошибки, создаем контроллер напрямую
+                if (env('APP_DEBUG', false)) {
+                    error_log("Router: Error creating controller via factory: " . $e->getMessage());
+                }
+            }
+        }
+
+        // Fallback: создаем контроллер напрямую
+        return new $controllerClass();
     }
 
     private function show404()

@@ -24,12 +24,9 @@ class AuthController extends Controller
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Простая проверка CSRF
-            $token = $_POST['_token'] ?? '';
-            if (!$this->validateCsrfTokenDirect($token)) {
-                $_SESSION['flash_error'] = 'Недействительный CSRF токен';
-                $this->redirect('/login');
-                return;
+            // Проверяем CSRF токен
+            if (!$this->validateCsrfToken()) {
+                return; // validateCsrfToken уже обработал ошибку
             }
 
             $username = trim($_POST['username'] ?? '');
@@ -105,15 +102,6 @@ class AuthController extends Controller
             $_SESSION['flash_error'] = 'Ошибка быстрого входа';
             $this->redirect('/');
         }
-    }
-
-    /**
-     * Простая проверка CSRF токена
-     */
-    private function validateCsrfTokenDirect(string $token): bool
-    {
-        return isset($_SESSION['csrf_token']) &&
-            hash_equals($_SESSION['csrf_token'], $token);
     }
 
     /**
