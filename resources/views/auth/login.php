@@ -43,6 +43,7 @@ $error = $error ?? null;
                 <?php endif; ?>
 
                 <form method="POST" action="/login">
+                    <input type="hidden" name="_token" value="<?= csrf_token() ?>">
                     <div class="mb-3">
                         <label for="username" class="form-label">Имя пользователя</label>
                         <div class="input-group">

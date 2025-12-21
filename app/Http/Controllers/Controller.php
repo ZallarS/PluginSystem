@@ -46,4 +46,32 @@ abstract class Controller
         }
         return true;
     }
+    protected function validateCsrfToken()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return true;
+        }
+
+        $token = $_POST['_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+
+        if (empty($token) || !isset($_SESSION['csrf_token']) || $token !== $_SESSION['csrf_token']) {
+            if ($this->isJsonRequest()) {
+                return $this->json(['error' => 'Invalid CSRF token'], 403);
+            } else {
+                $_SESSION['flash_error'] = 'Недействительный CSRF токен';
+                $this->redirect('/');
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function isJsonRequest()
+    {
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        return strpos($accept, 'application/json') !== false ||
+            isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+            $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
+    }
 }

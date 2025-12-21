@@ -4,12 +4,24 @@ declare(strict_types=1);
 if (!function_exists('env')) {
     function env($key, $default = null)
     {
-        $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
-
-        if ($value === false) {
+        // 1. Проверяем $_ENV
+        if (isset($_ENV[$key])) {
+            $value = $_ENV[$key];
+        }
+        // 2. Проверяем $_SERVER
+        elseif (isset($_SERVER[$key])) {
+            $value = $_SERVER[$key];
+        }
+        // 3. Проверяем getenv()
+        elseif (($value = getenv($key)) !== false) {
+            // getenv уже вернул значение
+        }
+        // 4. Возвращаем default
+        else {
             return $default;
         }
 
+        // Преобразуем строковые значения
         switch (strtolower($value)) {
             case 'true':
             case '(true)':
@@ -238,5 +250,11 @@ if (!function_exists('has_filter')) {
     {
         $hookManager = App\Core\HookManager::getInstance();
         return $hookManager->hasFilter($filter);
+    }
+}
+if (!function_exists('e')) {
+    function e($value, $doubleEncode = true)
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8', $doubleEncode);
     }
 }

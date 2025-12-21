@@ -7,10 +7,17 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        // ВРЕМЕННО ОТКЛЮЧАЕМ ПРОВЕРКУ
-        // if (!isset($_SESSION['user_id'])) {
-        //     $this->redirect('/login');
-        // }
+        // Проверяем авторизацию
+        if (!$this->isLoggedIn()) {
+            $this->redirect('/login');
+            return;
+        }
+
+        // Проверяем права администратора
+        if (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin']) {
+            $this->redirect('/');
+            return;
+        }
 
         $data = [
             'title' => 'Панель администратора',
@@ -20,11 +27,15 @@ class AdminController extends Controller
         echo $this->view('admin.dashboard', $data);
     }
 
-    // ... остальные методы остаются без изменений
     public function saveWidgets()
     {
         if (!isset($_SESSION['user_id'])) {
             return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        // Проверяем CSRF
+        if (!$this->validateCsrfToken()) {
+            return; // Редирект уже выполнен в validateCsrfToken
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {

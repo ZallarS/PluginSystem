@@ -15,11 +15,29 @@ class AuthController extends Controller
             $username = $_POST['username'] ?? '';
             $password = $_POST['password'] ?? '';
 
-            // ВРЕМЕННО: простая проверка (заменить на нормальную авторизацию)
-            if ($username === 'admin' && $password === 'admin') {
+            // Базовая валидация
+            $errors = [];
+
+            if (empty($username)) {
+                $errors['username'] = 'Имя пользователя обязательно';
+            }
+
+            if (empty($password)) {
+                $errors['password'] = 'Пароль обязателен';
+            }
+
+            // Используем конфигурацию из config/auth.php
+            $adminUsername = env('ADMIN_USERNAME', 'admin');
+            $adminPassword = env('ADMIN_PASSWORD', 'admin');
+
+            // Простая проверка (временное решение)
+            if ($username === $adminUsername && $password === $adminPassword) {
                 $_SESSION['user_id'] = 1;
-                $_SESSION['username'] = 'admin';
+                $_SESSION['username'] = $username;
                 $_SESSION['is_admin'] = true;
+
+                // Генерируем CSRF токен
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
                 $this->redirect('/admin');
                 return;
@@ -30,7 +48,8 @@ class AuthController extends Controller
 
         echo $this->view('auth.login', [
             'title' => 'Вход в панель администратора',
-            'error' => $error ?? null
+            'error' => $error ?? null,
+            'errors' => $errors ?? []
         ]);
     }
 
@@ -45,6 +64,9 @@ class AuthController extends Controller
         $_SESSION['user_id'] = 1;
         $_SESSION['username'] = 'admin';
         $_SESSION['is_admin'] = true;
+
+        // Генерируем CSRF токен
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
         echo "Авторизован как admin! <a href='/admin'>Перейти в админку</a>";
     }
