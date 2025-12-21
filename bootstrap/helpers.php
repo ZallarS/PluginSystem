@@ -132,6 +132,16 @@ if (!function_exists('route')) {
 if (!function_exists('csrf_token')) {
     function csrf_token()
     {
+        try {
+            $auth = auth();
+            if (method_exists($auth, 'getCsrfToken')) {
+                return $auth->getCsrfToken();
+            }
+        } catch (Exception $e) {
+            error_log("csrf_token(): Error: " . $e->getMessage());
+        }
+
+        // Fallback
         if (!isset($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
@@ -272,5 +282,153 @@ if (!function_exists('e')) {
     function e($value, $doubleEncode = true)
     {
         return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8', $doubleEncode);
+    }
+}
+if (!function_exists('app')) {
+    /**
+     * Получить экземпляр контейнера или конкретный сервис
+     */
+    function app($abstract = null)
+    {
+        try {
+            // Пытаемся получить Application
+            $application = \App\Core\Application::getInstance();
+
+            if (!$application) {
+                // Если Application не создан, создаем его (для консольных команд)
+                $application = new \App\Core\Application();
+            }
+
+            $container = $application->getContainer();
+
+            if (is_null($abstract)) {
+                return $container;
+            }
+
+            // Если запрашивается конкретный сервис
+            if (is_string($abstract)) {
+                if ($container->has($abstract)) {
+                    return $container->get($abstract);
+                }
+
+                // Попробуем создать класс, если он существует
+                if (class_exists($abstract)) {
+                    return $container->make($abstract);
+                }
+            }
+
+            return null;
+
+        } catch (Exception $e) {
+            error_log("app(): Error: " . $e->getMessage());
+            return null;
+        }
+    }
+}
+if (!function_exists('auth')) {
+    /**
+     * Получить сервис аутентификации
+     */
+    function auth()
+    {
+        try {
+            $authService = app(\App\Services\AuthService::class);
+
+            if ($authService) {
+                return $authService;
+            }
+        } catch (Exception $e) {
+            error_log("auth(): Error getting AuthService: " . $e->getMessage());
+        }
+
+        // Fallback для обратной совместимости
+        return new class {
+            public function isLoggedIn() {
+                return isset($_SESSION['user_id']) &&
+                    isset($_SESSION['is_admin']) &&
+                    $_SESSION['is_admin'];
+            }
+
+            public function getCsrfToken() {
+                if (!isset($_SESSION['csrf_token'])) {
+                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                }
+                return $_SESSION['csrf_token'];
+            }
+
+            public function validateCsrfToken($token) {
+                return isset($_SESSION['csrf_token']) &&
+                    hash_equals($_SESSION['csrf_token'], $token);
+            }
+
+            public function getCurrentUser() {
+                if (!$this->isLoggedIn()) {
+                    return null;
+                }
+
+                // Создаем минимальный объект пользователя
+                return new class {
+                    public function getId() { return $_SESSION['user_id'] ?? null; }
+                    public function getUsername() { return $_SESSION['username'] ?? 'admin'; }
+                    public function isAdmin() { return true; }
+                };
+            }
+        };
+    }
+}
+if (!function_exists('db')) {
+    /**
+     * Получить PDO соединение
+     */
+    function db()
+    {
+        return app(PDO::class);
+    }
+}
+if (!function_exists('view')) {
+    /**
+     * Рендеринг шаблона
+     */
+    function view($template, $data = [])
+    {
+        $engine = new \App\Core\View\TemplateEngine();
+        return $engine->render($template, $data);
+    }
+}
+if (!function_exists('config')) {
+    /**
+     * Получить значение конфигурации
+     */
+    function config($key, $default = null)
+    {
+        static $configs = [];
+
+        $parts = explode('.', $key);
+        $file = $parts[0];
+
+        if (!isset($configs[$file])) {
+            $configPath = config_path("{$file}.php");
+            if (file_exists($configPath)) {
+                $configs[$file] = require $configPath;
+            } else {
+                $configs[$file] = [];
+            }
+        }
+
+        $config = $configs[$file];
+
+        // Убираем первый элемент (название файла)
+        array_shift($parts);
+
+        // Ищем значение по пути
+        foreach ($parts as $part) {
+            if (isset($config[$part])) {
+                $config = $config[$part];
+            } else {
+                return $default;
+            }
+        }
+
+        return $config;
     }
 }

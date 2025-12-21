@@ -3,21 +3,39 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Services\AuthService;
+
 class AuthController extends Controller
 {
     public function login()
     {
-        if (isset($_SESSION['user_id'])) {
-            $this->redirect('/admin');
+        // Проверяем сессию
+        if (session_status() === PHP_SESSION_NONE) {
+            require_once dirname(__DIR__, 3) . '/bootstrap/session.php';
         }
 
+        // Если уже авторизован - редирект
+        if ($this->authService && $this->authService->isLoggedIn()) {
+            $this->redirect('/admin');
+            return;
+        }
+
+        $error = null;
+        $errors = [];
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = $_POST['username'] ?? '';
+            // Простая проверка CSRF
+            $token = $_POST['_token'] ?? '';
+            if (!$this->validateCsrfTokenDirect($token)) {
+                $_SESSION['flash_error'] = 'Недействительный CSRF токен';
+                $this->redirect('/login');
+                return;
+            }
+
+            $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
 
             // Базовая валидация
-            $errors = [];
-
             if (empty($username)) {
                 $errors['username'] = 'Имя пользователя обязательно';
             }
@@ -26,48 +44,134 @@ class AuthController extends Controller
                 $errors['password'] = 'Пароль обязателен';
             }
 
-            // Используем конфигурацию из config/auth.php
-            $adminUsername = env('ADMIN_USERNAME', 'admin');
-            $adminPassword = env('ADMIN_PASSWORD', 'admin');
-
-            // Простая проверка (временное решение)
-            if ($username === $adminUsername && $password === $adminPassword) {
-                $_SESSION['user_id'] = 1;
-                $_SESSION['username'] = $username;
-                $_SESSION['is_admin'] = true;
-
-                // Генерируем CSRF токен
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-                $this->redirect('/admin');
-                return;
-            } else {
-                $error = 'Неверные учетные данные';
+            if (empty($errors) && $this->authService) {
+                if ($this->authService->attemptLogin($username, $password)) {
+                    $_SESSION['flash_message'] = 'Вы успешно вошли в систему';
+                    $this->redirect('/admin');
+                    return;
+                } else {
+                    $error = 'Неверные учетные данные';
+                    sleep(1); // Задержка при неудачной попытке
+                }
             }
         }
 
-        echo $this->view('auth.login', [
-            'title' => 'Вход в панель администратора',
-            'error' => $error ?? null,
-            'errors' => $errors ?? []
-        ]);
+        // Генерируем CSRF токен если его нет
+        if (!isset($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+
+        try {
+            echo $this->view('auth.login', [
+                'title' => 'Вход в панель администратора',
+                'error' => $error,
+                'errors' => $errors,
+                'csrf_token' => $_SESSION['csrf_token']
+            ]);
+        } catch (\Exception $e) {
+            // Если ошибка в шаблоне, покажем простую форму
+            $this->showSimpleLoginForm($error, $errors, $_SESSION['csrf_token']);
+        }
     }
 
     public function logout()
     {
-        session_destroy();
+        if ($this->authService) {
+            $this->authService->logout();
+        } else {
+            // Минимальная реализация
+            session_destroy();
+        }
+
+        $_SESSION['flash_message'] = 'Вы успешно вышли из системы';
         $this->redirect('/');
     }
 
     public function quickLogin()
     {
-        $_SESSION['user_id'] = 1;
-        $_SESSION['username'] = 'admin';
-        $_SESSION['is_admin'] = true;
+        // Только для development
+        if (env('APP_ENV', 'production') === 'production') {
+            http_response_code(403);
+            die('Quick login disabled in production');
+        }
 
-        // Генерируем CSRF токен
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        $username = 'admin';
+        $password = env('ADMIN_PASSWORD', 'admin');
 
-        echo "Авторизован как admin! <a href='/admin'>Перейти в админку</a>";
+        if ($this->authService && $this->authService->attemptLogin($username, $password)) {
+            $_SESSION['flash_message'] = 'Быстрый вход выполнен';
+            $this->redirect('/admin');
+        } else {
+            $_SESSION['flash_error'] = 'Ошибка быстрого входа';
+            $this->redirect('/');
+        }
+    }
+
+    /**
+     * Простая проверка CSRF токена
+     */
+    private function validateCsrfTokenDirect(string $token): bool
+    {
+        return isset($_SESSION['csrf_token']) &&
+            hash_equals($_SESSION['csrf_token'], $token);
+    }
+
+    /**
+     * Простая форма логина как fallback
+     */
+    private function showSimpleLoginForm(?string $error, array $errors, string $csrfToken): void
+    {
+        echo '<!DOCTYPE html>
+        <html lang="ru">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Вход в систему | MVC System</title>
+            <style>
+                body { font-family: Arial, sans-serif; background: #f8f9fa; padding: 50px; }
+                .login-box { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h2 { text-align: center; color: #333; margin-bottom: 30px; }
+                .form-group { margin-bottom: 20px; }
+                label { display: block; margin-bottom: 5px; color: #555; }
+                input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+                button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+                button:hover { background: #0056b3; }
+                .error { color: #dc3545; font-size: 14px; margin-top: 5px; }
+                .alert { padding: 10px; margin-bottom: 20px; border-radius: 5px; }
+                .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+            </style>
+        </head>
+        <body>
+            <div class="login-box">
+                <h2>Вход в систему</h2>';
+
+        if ($error) {
+            echo '<div class="alert alert-danger">' . htmlspecialchars($error) . '</div>';
+        }
+
+        echo '<form method="POST" action="/login">
+                    <input type="hidden" name="_token" value="' . htmlspecialchars($csrfToken) . '">
+                    
+                    <div class="form-group">
+                        <label for="username">Имя пользователя</label>
+                        <input type="text" id="username" name="username" value="' . htmlspecialchars($_POST['username'] ?? '') . '" required>
+                        ' . (isset($errors['username']) ? '<div class="error">' . htmlspecialchars($errors['username']) . '</div>' : '') . '
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Пароль</label>
+                        <input type="password" id="password" name="password" required>
+                        ' . (isset($errors['password']) ? '<div class="error">' . htmlspecialchars($errors['password']) . '</div>' : '') . '
+                    </div>
+                    
+                    <button type="submit">Войти</button>
+                </form>
+                
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="/">На главную</a>
+                </div>
+            </div>
+        </body>
+        </html>';
     }
 }
