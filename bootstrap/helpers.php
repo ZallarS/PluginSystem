@@ -142,7 +142,23 @@ if (!function_exists('csrf_token')) {
 if (!function_exists('csrf_field')) {
     function csrf_field()
     {
-        return '<input type="hidden" name="_token" value="\' . htmlspecialchars(csrf_token()) . \'">';
+        return '<input type="hidden" name="_token" value="' . htmlspecialchars(csrf_token()) . '">';
+    }
+}
+
+// Добавляем функцию для AJAX запросов:
+if (!function_exists('csrf_meta')) {
+    function csrf_meta()
+    {
+        return '<meta name="csrf-token" content="' . htmlspecialchars(csrf_token()) . '">';
+    }
+}
+
+// Добавляем функцию для заголовков:
+if (!function_exists('csrf_header')) {
+    function csrf_header()
+    {
+        return ['X-CSRF-TOKEN' => csrf_token()];
     }
 }
 
@@ -157,7 +173,7 @@ if (!function_exists('session')) {
     function session($key = null, $value = null)
     {
         if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+            require_once dirname(__DIR__) . '/bootstrap/session.php';
         }
 
         if ($key === null) {

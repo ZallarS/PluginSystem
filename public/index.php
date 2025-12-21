@@ -34,7 +34,7 @@ require_once dirname(__DIR__) . '/bootstrap/helpers.php';
 
 // Начинаем сессию
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    require_once dirname(__DIR__) . '/bootstrap/session.php';
 }
 
 // Запускаем приложение

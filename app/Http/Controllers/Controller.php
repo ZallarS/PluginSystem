@@ -46,6 +46,10 @@ abstract class Controller
         }
         return true;
     }
+
+    /**
+     * Проверяет CSRF токен для POST запросов
+     */
     protected function validateCsrfToken()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -59,7 +63,7 @@ abstract class Controller
                 return $this->json(['error' => 'Invalid CSRF token'], 403);
             } else {
                 $_SESSION['flash_error'] = 'Недействительный CSRF токен';
-                $this->redirect('/');
+                $this->redirect($_SERVER['HTTP_REFERER'] ?? '/');
                 return false;
             }
         }
@@ -67,11 +71,25 @@ abstract class Controller
         return true;
     }
 
+    /**
+     * Проверяет, является ли запрос AJAX/JSON
+     */
     protected function isJsonRequest()
     {
         $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
         return strpos($accept, 'application/json') !== false ||
-            isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-            $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
+            (isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+                $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest');
+    }
+
+    /**
+     * Проверяет авторизацию для API методов
+     */
+    protected function requireApiAuth()
+    {
+        if (!$this->isLoggedIn()) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+        return true;
     }
 }

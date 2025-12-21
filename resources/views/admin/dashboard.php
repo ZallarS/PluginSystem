@@ -9,7 +9,7 @@ $message = $message ?? 'Добро пожаловать в панель упра
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars((string)$title) ?> | MVC System</title>
-
+    <?= csrf_meta() ?>
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
@@ -939,7 +939,7 @@ $message = $message ?? 'Добро пожаловать в панель упра
         const formData = new FormData();
         formData.append('action', 'save_widgets');
         formData.append('widgets', JSON.stringify(allWidgets));
-        formData.append('_token', '<?= csrf_token() ?>');
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.content || '<?= csrf_token() ?>');
 
         // Блокируем кнопку сохранения
         const saveButton = document.querySelector('.save-widgets');
@@ -1119,7 +1119,8 @@ $message = $message ?? 'Добро пожаловать в панель упра
         const formData = new FormData();
         formData.append('widget_id', widgetId);
         formData.append('action', 'hide_widget');
-        formData.append('_token', '<?= csrf_token() ?>');
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.content || '<?= csrf_token() ?>');
+
 
         // Показываем индикатор загрузки
         const toggleButton = widgetElement.querySelector('.widget-toggle');
@@ -1193,7 +1194,7 @@ $message = $message ?? 'Добро пожаловать в панель упра
                 const formData = new FormData();
                 formData.append('widget_id', widgetId);
                 formData.append('action', 'show_widget');
-                formData.append('_token', '<?= csrf_token() ?>');
+                formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.content || '<?= csrf_token() ?>');
 
                 fetch('/admin/toggle-widget', {
                     method: 'POST',

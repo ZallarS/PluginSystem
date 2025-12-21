@@ -136,4 +136,44 @@ class Application
     {
         return $this->pluginManager;
     }
+    private function handleMiddleware($request)
+    {
+        $middleware = [
+            \App\Http\Middleware\Authenticate::class => [
+                '/admin',
+                '/admin/*'
+            ],
+        ];
+
+        foreach ($middleware as $middlewareClass => $paths) {
+            foreach ($paths as $path) {
+                if ($this->uriMatches($request['uri'], $path)) {
+                    $middlewareInstance = new $middlewareClass();
+                    $request = $middlewareInstance->handle($request, function($req) {
+                        return $req;
+                    });
+
+                    if ($request === null) {
+                        return null; // Middleware прервал выполнение
+                    }
+                }
+            }
+        }
+
+        return $request;
+    }
+
+    private function uriMatches($uri, $pattern)
+    {
+        if ($pattern === $uri) {
+            return true;
+        }
+
+        if (strpos($pattern, '*') !== false) {
+            $pattern = str_replace('*', '.*', $pattern);
+            return preg_match('#^' . $pattern . '$#', $uri);
+        }
+
+        return false;
+    }
 }

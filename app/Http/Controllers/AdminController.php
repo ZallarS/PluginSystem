@@ -7,15 +7,7 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        // Проверяем авторизацию
-        if (!$this->isLoggedIn()) {
-            $this->redirect('/login');
-            return;
-        }
-
-        // Проверяем права администратора
-        if (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin']) {
-            $this->redirect('/');
+        if (!$this->requireLogin()) {
             return;
         }
 
@@ -29,17 +21,24 @@ class AdminController extends Controller
 
     public function saveWidgets()
     {
-        if (!isset($_SESSION['user_id'])) {
-            return $this->json(['error' => 'Unauthorized'], 401);
+        // Проверяем авторизацию
+        if (!$this->requireApiAuth()) {
+            return;
         }
 
         // Проверяем CSRF
         if (!$this->validateCsrfToken()) {
-            return; // Редирект уже выполнен в validateCsrfToken
+            return;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $widgets = json_decode($_POST['widgets'] ?? '{}', true);
+
+            // Базовая валидация
+            if (!is_array($widgets)) {
+                return $this->json(['error' => 'Invalid widgets data'], 400);
+            }
+
             $_SESSION['user_widgets'] = $widgets;
 
             return $this->json(['success' => true, 'message' => 'Настройки виджетов сохранены']);
@@ -50,8 +49,14 @@ class AdminController extends Controller
 
     public function toggleWidget()
     {
-        if (!isset($_SESSION['user_id'])) {
-            return $this->json(['error' => 'Unauthorized'], 401);
+        // Проверяем авторизацию
+        if (!$this->requireApiAuth()) {
+            return;
+        }
+
+        // Проверяем CSRF
+        if (!$this->validateCsrfToken()) {
+            return;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -86,8 +91,9 @@ class AdminController extends Controller
 
     public function getHiddenWidgets()
     {
-        if (!isset($_SESSION['user_id'])) {
-            return $this->json(['error' => 'Unauthorized'], 401);
+        // Проверяем авторизацию
+        if (!$this->requireApiAuth()) {
+            return;
         }
 
         try {
@@ -96,28 +102,15 @@ class AdminController extends Controller
             $hiddenWidgets = [];
 
             foreach ($allWidgets as $widgetId => $widgetData) {
-                if (method_exists($widgetManager, 'isWidgetVisible')) {
-                    if (!$widgetManager->isWidgetVisible($widgetId)) {
-                        $hiddenWidgets[] = [
-                            'id' => $widgetId,
-                            'title' => $widgetData['title'] ?? 'Без названия',
-                            'icon' => $widgetData['icon'] ?? 'bi-question-circle',
-                            'description' => $widgetData['description'] ?? 'Описание отсутствует',
-                            'source' => $widgetData['source'] ?? 'system',
-                            'plugin_name' => $widgetData['plugin_name'] ?? null
-                        ];
-                    }
-                } else {
-                    if (!isset($_SESSION['user_widgets'][$widgetId]) || !$_SESSION['user_widgets'][$widgetId]) {
-                        $hiddenWidgets[] = [
-                            'id' => $widgetId,
-                            'title' => $widgetData['title'] ?? 'Без названия',
-                            'icon' => $widgetData['icon'] ?? 'bi-question-circle',
-                            'description' => $widgetData['description'] ?? 'Описание отсутствует',
-                            'source' => $widgetData['source'] ?? 'system',
-                            'plugin_name' => $widgetData['plugin_name'] ?? null
-                        ];
-                    }
+                if (!$widgetManager->isWidgetVisible($widgetId)) {
+                    $hiddenWidgets[] = [
+                        'id' => $widgetId,
+                        'title' => $widgetData['title'] ?? 'Без названия',
+                        'icon' => $widgetData['icon'] ?? 'bi-question-circle',
+                        'description' => $widgetData['description'] ?? 'Описание отсутствует',
+                        'source' => $widgetData['source'] ?? 'system',
+                        'plugin_name' => $widgetData['plugin_name'] ?? null
+                    ];
                 }
             }
 
@@ -134,8 +127,9 @@ class AdminController extends Controller
 
     public function getWidgetInfo($widgetId)
     {
-        if (!isset($_SESSION['user_id'])) {
-            return $this->json(['error' => 'Unauthorized'], 401);
+        // Проверяем авторизацию
+        if (!$this->requireApiAuth()) {
+            return;
         }
 
         $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
@@ -159,8 +153,9 @@ class AdminController extends Controller
 
     public function getWidgetHtml($widgetId)
     {
-        if (!isset($_SESSION['user_id'])) {
-            return $this->json(['error' => 'Unauthorized'], 401);
+        // Проверяем авторизацию
+        if (!$this->requireApiAuth()) {
+            return;
         }
 
         $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
