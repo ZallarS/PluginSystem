@@ -32,7 +32,7 @@ class PluginManager
     {
         try {
             // Получаем конфигурацию БД
-            $configPath = __DIR__ . '/../app/Config/database.php';
+            $configPath = config_path('database.php');
             if (file_exists($configPath)) {
                 $config = require $configPath;
                 $dbConfig = $config['connections']['mysql'] ?? $config['connections']['default'] ?? null;
@@ -385,14 +385,11 @@ class PluginManager
         }
     }
 
-    private function getPluginsDirectory()
+    private function getPluginsDirectory(): string
     {
-        $basePath = dirname(__DIR__);
-
         $possiblePaths = [
-            $basePath . '/plugins/',
-            $basePath . '/../plugins/',
-            __DIR__ . '/../../plugins/'
+            base_path('plugins/'),
+            dirname(__DIR__, 2) . '/plugins/'
         ];
 
         foreach ($possiblePaths as $path) {
@@ -401,7 +398,7 @@ class PluginManager
             }
         }
 
-        return $possiblePaths[0];
+        return base_path('plugins/');
     }
 
     public function getPlugins()
