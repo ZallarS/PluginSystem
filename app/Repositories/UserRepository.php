@@ -10,49 +10,36 @@ use PDOException;
 class UserRepository
 {
     private ?PDO $connection;
-    private bool $hasDatabase = false;
 
     public function __construct(?PDO $connection = null)
     {
         $this->connection = $connection;
-        $this->hasDatabase = $connection !== null;
-
-        if ($this->hasDatabase) {
-            try {
-                $this->createTable();
-            } catch (PDOException $e) {
-                error_log("UserRepository: Database error, using fallback mode: " . $e->getMessage());
-                $this->hasDatabase = false;
-            }
-        }
     }
 
     public function findByUsername(string $username): ?User
     {
-        // Если есть БД, ищем в ней
-        if ($this->hasDatabase && $this->connection) {
+        // 1. Пробуем БД если есть соединение
+        if ($this->connection) {
             try {
                 $stmt = $this->connection->prepare("SELECT * FROM users WHERE username = ?");
                 $stmt->execute([$username]);
-                $data = $stmt->fetch();
 
-                if ($data) {
+                if ($data = $stmt->fetch()) {
                     return User::createFromArray($data);
                 }
             } catch (PDOException $e) {
-                error_log("UserRepository: Error finding user by username: " . $e->getMessage());
+                // В режиме debug логируем
+                if (env('APP_DEBUG')) {
+                    error_log("UserRepository DB error: " . $e->getMessage());
+                }
             }
         }
 
-        // Fallback: проверяем администратора из .env
+        // 2. Fallback на admin из .env
         $adminUsername = env('ADMIN_USERNAME', 'admin');
 
         if ($username === $adminUsername) {
-            $adminPassword = env('ADMIN_PASSWORD', 'admin');
-            $user = new User($adminUsername, $adminPassword, true);
-            $userData = $user->toArray();
-            $userData['id'] = 1;
-            return User::createFromArray($userData);
+            return $this->createAdminUser();
         }
 
         return null;
@@ -86,6 +73,25 @@ class UserRepository
         }
 
         return null;
+    }
+
+    private function createAdminUser(): User
+    {
+        $adminUsername = env('ADMIN_USERNAME', 'admin');
+        $adminPassword = env('ADMIN_PASSWORD', 'admin');
+
+        $user = new User($adminUsername, $adminPassword, true);
+
+        // Создаем массив как если бы он был из БД
+        $userData = [
+            'id' => 1,
+            'username' => $user->getUsername(),
+            'password_hash' => $user->toArray()['password_hash'],
+            'is_admin' => 1,
+            'created_at' => date('Y-m-d H:i:s')
+        ];
+
+        return User::createFromArray($userData);
     }
 
     public function save(User $user): bool

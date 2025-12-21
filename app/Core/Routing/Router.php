@@ -70,7 +70,23 @@ class Router
                 throw new \Exception("Controller class not found: {$controller}");
             }
 
-            $controllerInstance = new $controller();
+            // Получаем Application и создаем контроллер через фабрику
+            $app = \App\Core\Application::getInstance();
+            if ($app && method_exists($app, 'getContainer')) {
+                $container = $app->getContainer();
+
+                // Если есть фабрика в контейнере, используем ее
+                if ($container && $container->has(\App\Core\ControllerFactory::class)) {
+                    $factory = $container->get(\App\Core\ControllerFactory::class);
+                    $controllerInstance = $factory->create($controller);
+                } else {
+                    // Fallback: создаем напрямую
+                    $controllerInstance = new $controller();
+                }
+            } else {
+                // Fallback: создаем напрямую
+                $controllerInstance = new $controller();
+            }
 
             if (method_exists($controllerInstance, $method)) {
                 return call_user_func_array([$controllerInstance, $method], array_values($parameters));

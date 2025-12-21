@@ -52,42 +52,35 @@ class Application
                 return \App\Core\Widgets\WidgetManager::getInstance();
             });
 
-            // Регистрируем PDO соединение
-            $this->container->singleton(\PDO::class, function() {
-                try {
-                    $dsn = sprintf(
-                        'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-                        env('DB_HOST', 'localhost'),
-                        env('DB_PORT', '3306'),
-                        env('DB_DATABASE', 'SystemPlugins')
-                    );
+            // Упрощенная регистрация PDO - только если есть настройки
+            if (env('DB_HOST') && env('DB_DATABASE')) {
+                $this->container->singleton(\PDO::class, function() {
+                    try {
+                        $dsn = sprintf(
+                            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+                            env('DB_HOST', 'localhost'),
+                            env('DB_PORT', '3306'),
+                            env('DB_DATABASE')
+                        );
 
-                    $pdo = new \PDO(
-                        $dsn,
-                        env('DB_USERNAME', 'root'),
-                        env('DB_PASSWORD', ''),
-                        [
-                            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                            \PDO::ATTR_EMULATE_PREPARES => false
-                        ]
-                    );
+                        return new \PDO(
+                            $dsn,
+                            env('DB_USERNAME', 'root'),
+                            env('DB_PASSWORD', ''),
+                            [
+                                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                                \PDO::ATTR_EMULATE_PREPARES => false
+                            ]
+                        );
+                    } catch (\PDOException $e) {
+                        // Возвращаем null вместо выбрасывания исключения
+                        return null;
+                    }
+                });
+            }
 
-                    // Проверяем соединение
-                    $pdo->query('SELECT 1');
-                    error_log("Application: Database connection successful");
-                    return $pdo;
-
-                } catch (\PDOException $e) {
-                    error_log("Application: Database connection failed: " . $e->getMessage());
-                    return null;
-                } catch (\Exception $e) {
-                    error_log("Application: Error creating PDO: " . $e->getMessage());
-                    return null;
-                }
-            });
-
-            // Регистрируем UserRepository
+            // Регистрируем UserRepository с проверкой PDO
             $this->container->singleton(\App\Repositories\UserRepository::class, function($container) {
                 $pdo = $container->get(\PDO::class);
                 return new \App\Repositories\UserRepository($pdo);
@@ -99,10 +92,11 @@ class Application
                 return new \App\Services\AuthService($userRepository);
             });
 
-            error_log("Application: Essential bindings registered");
-
         } catch (\Exception $e) {
-            error_log("Application: Error registering bindings: " . $e->getMessage());
+            // Логируем, но не падаем
+            if (env('APP_DEBUG')) {
+                error_log("Application: Error in bindings: " . $e->getMessage());
+            }
         }
     }
 

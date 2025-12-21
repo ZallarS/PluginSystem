@@ -5,17 +5,41 @@ namespace App\Http\Controllers;
 
 use App\Core\View\TemplateEngine;
 use App\Services\AuthService;
-use Exception;
+use App\Core\Application;
 
 abstract class Controller
 {
     protected TemplateEngine $template;
     protected ?AuthService $authService = null;
 
-    public function __construct()
+    public function __construct(
+        TemplateEngine $template = null,
+        AuthService $authService = null
+    ) {
+        $this->template = $template ?? new TemplateEngine();
+        $this->authService = $authService;
+
+        // Если AuthService не передан, пытаемся получить из контейнера
+        if (!$this->authService) {
+            $this->authService = $this->getAuthServiceFromContainer();
+        }
+    }
+
+    private function getAuthServiceFromContainer(): ?AuthService
     {
-        $this->template = new TemplateEngine();
-        $this->initializeAuthService();
+        try {
+            $app = Application::getInstance();
+            if ($app && method_exists($app, 'getContainer')) {
+                $container = $app->getContainer();
+                if ($container && $container->has(AuthService::class)) {
+                    return $container->get(AuthService::class);
+                }
+            }
+        } catch (\Exception $e) {
+            // Молча игнорируем, вернем null
+        }
+
+        return null;
     }
 
     private function initializeAuthService(): void
