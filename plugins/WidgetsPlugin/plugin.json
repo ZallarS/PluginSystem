@@ -1,0 +1,15 @@
+{
+  "name": "Widgets Plugin",
+  "version": "1.0.0",
+  "description": "Плагин добавляет дополнительные виджеты для дашборда",
+  "author": "MVC System",
+  "requires": {
+    "php": "7.4",
+    "mvc-system": "1.0"
+  },
+  "widgets": [
+    "weather",
+    "recent_comments",
+    "system_monitor"
+  ]
+}

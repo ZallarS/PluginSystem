@@ -7,8 +7,7 @@
         "psr-4": {
             "Core\\": "core/",
             "App\\": "app/",
-            "Plugins\\": "plugins/",
-            "HelloWorld\\": "plugins/HelloWorld/"
+            "Plugins\\": "plugins/"
         }
     },
     "require": {

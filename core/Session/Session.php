@@ -8,6 +8,11 @@ class Session
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
+
+            // Инициализируем user_widgets если не существует
+            if (!isset($_SESSION['user_widgets'])) {
+                $_SESSION['user_widgets'] = [];
+            }
         }
     }
 

@@ -338,12 +338,6 @@ class PluginManager
             return false;
         }
 
-        // Если уже не активен
-        if (!isset($this->activePlugins[$pluginName])) {
-            error_log("PluginManager: Plugin already inactive: {$pluginName}");
-            return true;
-        }
-
         if (isset($this->activePlugins[$pluginName]) && method_exists($this->activePlugins[$pluginName], 'deactivate')) {
             $this->activePlugins[$pluginName]->deactivate();
         }

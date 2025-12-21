@@ -15,8 +15,9 @@ class Core
     public function __construct()
     {
         self::$instance = $this;
+        require_once __DIR__ . '/helpers.php';
         $this->loadConfig();
-        $this->initHookManager(); // <-- Добавьте эту строку
+        $this->initHookManager();
         $this->initRouter();
         $this->initPlugins();
     }
@@ -100,6 +101,13 @@ class Core
         $this->router->post('/admin/plugins/activate/{pluginName}', 'App\\Controllers\\PluginController@activate');
         $this->router->post('/admin/plugins/deactivate/{pluginName}', 'App\\Controllers\\PluginController@deactivate');
 
+        // Управление виджетами (ТОЛЬКО ОДИН РАЗ КАЖДЫЙ!)
+        $this->router->post('/admin/save-widgets', 'App\\Controllers\\AdminController@saveWidgets');
+        $this->router->post('/admin/toggle-widget', 'App\\Controllers\\AdminController@toggleWidget');
+        $this->router->get('/admin/get-hidden-widgets', 'App\\Controllers\\AdminController@getHiddenWidgets');
+        $this->router->get('/admin/widget-info/{widgetId}', 'App\\Controllers\\AdminController@getWidgetInfo');
+        $this->router->get('/admin/widget-html/{widgetId}', 'App\\Controllers\\AdminController@getWidgetHtml');
+
         error_log("Base routes registered");
     }
 
@@ -133,6 +141,9 @@ class Core
         $activePlugins = $this->pluginManager->getActivePlugins();
         error_log("Core: Active plugins count: " . count($activePlugins));
 
+        // Инициализируем виджеты плагинов
+        $this->initPluginWidgets($activePlugins);
+
         // Для каждого активного плагина вызываем метод registerRoutes если он существует
         foreach ($activePlugins as $pluginName => $plugin) {
             error_log("Core: Processing plugin routes for: " . $pluginName);
@@ -143,6 +154,29 @@ class Core
                 error_log("Plugin {$pluginName}: registerRoutes method not found or plugin not loaded");
             }
         }
+    }
+
+    private function initPluginWidgets($activePlugins)
+    {
+        error_log("Core: Initializing plugin widgets...");
+
+        $widgetManager = \Core\Widgets\WidgetManager::getInstance();
+
+        // Только инициализируем плагины, виджеты уже зарегистрированы при активации
+        foreach ($activePlugins as $pluginName => $plugin) {
+            if ($plugin && method_exists($plugin, 'init')) {
+                error_log("Core: Initializing plugin: " . $pluginName);
+                $plugin->init();
+            }
+        }
+
+        error_log("Core: Plugin widgets initialized");
+    }
+
+    private function initWidgets()
+    {
+        $widgetManager = \Core\Widgets\WidgetManager::getInstance();
+        // Виджеты уже зарегистрированы в конструкторе WidgetManager
     }
 
     public function run()
