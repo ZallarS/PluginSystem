@@ -399,36 +399,32 @@ if (!function_exists('config')) {
     /**
      * Получить значение конфигурации
      */
-    function config($key, $default = null)
+    function config($key = null, $default = null)
     {
-        static $configs = [];
+        static $config = [];
 
-        $parts = explode('.', $key);
-        $file = $parts[0];
-
-        if (!isset($configs[$file])) {
-            $configPath = config_path("{$file}.php");
-            if (file_exists($configPath)) {
-                $configs[$file] = require $configPath;
-            } else {
-                $configs[$file] = [];
+        if (empty($config)) {
+            $appConfig = config_path('app.php');
+            if (file_exists($appConfig)) {
+                $config = require $appConfig;
             }
         }
 
-        $config = $configs[$file];
+        if ($key === null) {
+            return $config;
+        }
 
-        // Убираем первый элемент (название файла)
-        array_shift($parts);
+        $keys = explode('.', $key);
+        $value = $config;
 
-        // Ищем значение по пути
-        foreach ($parts as $part) {
-            if (isset($config[$part])) {
-                $config = $config[$part];
+        foreach ($keys as $segment) {
+            if (is_array($value) && isset($value[$segment])) {
+                $value = $value[$segment];
             } else {
                 return $default;
             }
         }
 
-        return $config;
+        return $value;
     }
 }

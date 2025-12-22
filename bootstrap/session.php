@@ -27,8 +27,4 @@ if (session_status() === PHP_SESSION_NONE) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
 
-    // Инициализируем user_widgets если не существует
-    if (!isset($_SESSION['user_widgets'])) {
-        $_SESSION['user_widgets'] = [];
-    }
 }

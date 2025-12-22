@@ -67,14 +67,14 @@ class AdminController extends Controller
                 return $this->json(['error' => 'Widget ID is required'], 400);
             }
 
-            $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
+            $widgetService = $this->getWidgetService();
 
             if ($action === 'hide_widget') {
-                $widgetManager->toggleWidget($widgetId, false);
+                $widgetService->toggleWidget($widgetId, false);
                 return $this->json(['success' => true, 'message' => 'Виджет скрыт']);
             } elseif ($action === 'show_widget') {
-                $widgetManager->toggleWidget($widgetId, true);
-                $html = $widgetManager->renderWidget($widgetId);
+                $widgetService->toggleWidget($widgetId, true);
+                $html = $widgetService->renderWidget($widgetId);
 
                 return $this->json([
                     'success' => true,
@@ -89,6 +89,21 @@ class AdminController extends Controller
         return $this->json(['error' => 'Invalid request'], 400);
     }
 
+    private function getWidgetService()
+    {
+        try {
+            $app = \App\Core\Application::getInstance();
+            if ($app && $app->getContainer()->has(\App\Services\WidgetService::class)) {
+                return $app->getContainer()->get(\App\Services\WidgetService::class);
+            }
+        } catch (\Exception $e) {
+            error_log("Error getting WidgetService: " . $e->getMessage());
+        }
+
+        // Fallback
+        return new \App\Services\WidgetService();
+    }
+
     public function getHiddenWidgets()
     {
         // Проверяем авторизацию
@@ -97,22 +112,8 @@ class AdminController extends Controller
         }
 
         try {
-            $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
-            $allWidgets = $widgetManager->getAllWidgets();
-            $hiddenWidgets = [];
-
-            foreach ($allWidgets as $widgetId => $widgetData) {
-                if (!$widgetManager->isWidgetVisible($widgetId)) {
-                    $hiddenWidgets[] = [
-                        'id' => $widgetId,
-                        'title' => $widgetData['title'] ?? 'Без названия',
-                        'icon' => $widgetData['icon'] ?? 'bi-question-circle',
-                        'description' => $widgetData['description'] ?? 'Описание отсутствует',
-                        'source' => $widgetData['source'] ?? 'system',
-                        'plugin_name' => $widgetData['plugin_name'] ?? null
-                    ];
-                }
-            }
+            $widgetService = $this->getWidgetService();
+            $hiddenWidgets = $widgetService->getHiddenWidgets();
 
             return $this->json([
                 'success' => true,

@@ -20,7 +20,7 @@ class WidgetManager
     public function __construct()
     {
         $this->loadUserWidgets();
-        $this->registerDefaultWidgets();
+        // Убираем registerDefaultWidgets - виджеты будут регистрироваться через плагин
     }
 
     private function loadUserWidgets()
@@ -28,131 +28,21 @@ class WidgetManager
         if (isset($_SESSION['user_widgets'])) {
             $this->userWidgets = $_SESSION['user_widgets'];
         } else {
-            $this->userWidgets = [
-                'system_stats' => true,
-                'recent_activity' => true,
-                'quick_links' => true,
-                'server_info' => true,
-            ];
+            // Инициализируем пустым массивом
+            $this->userWidgets = [];
+            $_SESSION['user_widgets'] = $this->userWidgets;
         }
-    }
-
-    private function registerDefaultWidgets()
-    {
-        $this->widgets = [
-            'system_stats' => [
-                'id' => 'system_stats',
-                'title' => 'Статистика системы',
-                'description' => 'Основные показатели системы',
-                'icon' => 'bi-speedometer2',
-                'size' => 'medium',
-                'source' => 'system',
-                'content' => function() {
-                    return '
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="bi bi-plug"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <h5>0</h5>
-                                    <small>Плагинов</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="bi bi-person"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <h5>1</h5>
-                                    <small>Пользователей</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>';
-                }
-            ],
-            'recent_activity' => [
-                'id' => 'recent_activity',
-                'title' => 'Последние действия',
-                'description' => 'История активности',
-                'icon' => 'bi-clock-history',
-                'size' => 'medium',
-                'source' => 'system',
-                'content' => function() {
-                    return '
-                    <ul class="activity-list">
-                        <li>
-                            <i class="bi bi-check-circle text-success"></i>
-                            <span>Вы вошли в систему</span>
-                            <small>Только что</small>
-                        </li>
-                    </ul>';
-                }
-            ],
-            'quick_links' => [
-                'id' => 'quick_links',
-                'title' => 'Быстрые ссылки',
-                'description' => 'Доступ к основным разделам',
-                'icon' => 'bi-link-45deg',
-                'size' => 'small',
-                'content' => function() {
-                    return '
-                    <div class="quick-links">
-                        <a href="/admin/plugins" class="quick-link">
-                            <i class="bi bi-plug"></i>
-                            <span>Плагины</span>
-                        </a>
-                        <a href="#" class="quick-link">
-                            <i class="bi bi-palette"></i>
-                            <span>Темы</span>
-                        </a>
-                        <a href="#" class="quick-link">
-                            <i class="bi bi-gear"></i>
-                            <span>Настройки</span>
-                        </a>
-                    </div>';
-                }
-            ],
-            'server_info' => [
-                'id' => 'server_info',
-                'title' => 'Информация о сервере',
-                'description' => 'Технические данные',
-                'icon' => 'bi-server',
-                'size' => 'large',
-                'content' => function() {
-                    return '
-                    <div class="server-info">
-                        <div class="info-row">
-                            <span>PHP версия:</span>
-                            <strong>' . phpversion() . '</strong>
-                        </div>
-                        <div class="info-row">
-                            <span>Версия MySQL:</span>
-                            <strong>5.7+</strong>
-                        </div>
-                        <div class="info-row">
-                            <span>Память:</span>
-                            <strong>' . ini_get('memory_limit') . '</strong>
-                        </div>
-                    </div>';
-                }
-            ]
-        ];
     }
 
     public function getWidgets()
     {
-        $widgets = [];
+        $visibleWidgets = [];
         foreach ($this->widgets as $widgetId => $widgetData) {
             if ($this->isWidgetVisible($widgetId)) {
-                $widgets[$widgetId] = $widgetData;
+                $visibleWidgets[$widgetId] = $widgetData;
             }
         }
-        return $widgets;
+        return $visibleWidgets;
     }
 
     public function getAllWidgets()
@@ -176,7 +66,7 @@ class WidgetManager
         $content = is_callable($widget['content']) ? $widget['content']() : $widget['content'];
 
         return '
-                    <div class="dashboard-widget widget-' . $widget['size'] . '" data-widget-id="' . $widget['id'] . '">
+        <div class="dashboard-widget widget-' . $widget['size'] . '" data-widget-id="' . $widget['id'] . '">
             <div class="widget-header">
                 <div class="widget-title">
                     <i class="bi ' . $widget['icon'] . '"></i>
@@ -190,7 +80,7 @@ class WidgetManager
                 </div>
             </div>
             <div class="widget-body">
-                    ' . $content . '
+                ' . $content . '
             </div>
         </div>';
     }
@@ -253,6 +143,7 @@ class WidgetManager
             'plugin_name' => $widgetData['plugin_name'] ?? null,
         ];
 
+        // Добавляем виджет в user_widgets если его там нет
         if (!isset($this->userWidgets[$widgetId])) {
             $this->userWidgets[$widgetId] = true;
             $_SESSION['user_widgets'] = $this->userWidgets;
@@ -291,8 +182,4 @@ class WidgetManager
 
         return $widget['content'];
     }
-
-
-
-
 }

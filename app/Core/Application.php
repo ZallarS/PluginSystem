@@ -111,6 +111,33 @@ class Application
                 return new \App\Core\ControllerFactory($container);
             });
 
+            // Регистрируем WidgetService
+            $this->container->singleton(\App\Services\WidgetService::class, function($container) {
+                $widgetManager = $container->has(\App\Core\Widgets\WidgetManager::class)
+                    ? $container->get(\App\Core\Widgets\WidgetManager::class)
+                    : \App\Core\Widgets\WidgetManager::getInstance();
+
+                $hookManager = $container->has(\App\Core\HookManager::class)
+                    ? $container->get(\App\Core\HookManager::class)
+                    : \App\Core\HookManager::getInstance();
+
+                return new \App\Services\WidgetService($widgetManager, $hookManager);
+            });
+
+            // Регистрируем CacheService
+            $this->container->singleton(\App\Services\CacheService::class, function() {
+                $cachePath = storage_path('cache');
+                $enabled = config('widget_cache.enabled', true);
+
+                if (!$enabled) {
+                    return null; // Возвращаем null если кэширование отключено
+                }
+
+                $ttl = config('widget_cache.ttl', 300);
+                return new \App\Services\CacheService($cachePath, $ttl);
+            });
+
+
         } catch (\Exception $e) {
             // Логируем только в режиме отладки
             if (env('APP_DEBUG', false)) {
@@ -186,6 +213,11 @@ class Application
         if (class_exists('Plugins\PluginManager')) {
             try {
                 $this->pluginManager = \Plugins\PluginManager::getInstance();
+
+                // Загружаем системные плагины
+                $this->pluginManager->loadSystemPlugins();
+
+                // Затем загружаем обычные плагины
                 $pluginsRegistered = $this->pluginManager->loadPlugins();
                 error_log("Core: Plugins registered: " . $pluginsRegistered);
 

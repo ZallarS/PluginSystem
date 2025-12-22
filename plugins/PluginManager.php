@@ -28,6 +28,39 @@ class PluginManager
         $this->loadActivePluginsFromDatabase();
     }
 
+    public function loadSystemPlugins()
+    {
+        $systemPluginsPath = dirname(__DIR__) . '/plugins/SystemWidgets';
+
+        if (file_exists($systemPluginsPath . '/plugin.json')) {
+            $config = json_decode(file_get_contents($systemPluginsPath . '/plugin.json'), true);
+
+            if ($config && isset($config['namespace'], $config['class'])) {
+                $className = $config['namespace'] . '\\' . $config['class'];
+                $pluginFile = $systemPluginsPath . '/' . $config['class'] . '.php';
+
+                if (file_exists($pluginFile)) {
+                    require_once $pluginFile;
+
+                    if (class_exists($className)) {
+                        $this->plugins[$config['name']] = [
+                            'config' => $config,
+                            'instance' => new $className(),
+                            'active' => true
+                        ];
+
+                        // Инициализируем плагин
+                        $this->plugins[$config['name']]['instance']->init();
+
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function initDatabase()
     {
         try {

@@ -1,0 +1,11 @@
+{
+  "name": "System Widgets",
+  "description": "Системные виджеты для панели управления",
+  "version": "1.0.0",
+  "author": "System",
+  "namespace": "Plugins\\SystemWidgets",
+  "class": "SystemWidgetsPlugin",
+  "type": "system",
+  "priority": 1000,
+  "auto_enable": true
+}
