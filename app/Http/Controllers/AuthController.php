@@ -11,45 +11,35 @@ class AuthController extends Controller
 {
     public function login()
     {
-        // Проверяем сессию
-        if (session_status() === PHP_SESSION_NONE) {
-            require_once dirname(__DIR__, 3) . '/bootstrap/session.php';
-        }
-
         // Если уже авторизован - редирект
-        if ($this->authService && $this->authService->isLoggedIn()) {
+        if ($this->isLoggedIn()) {
             return $this->redirect('/admin');
         }
 
         $error = null;
         $errors = [];
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Проверяем CSRF
-            if (!$this->validateCsrfToken()) {
-                return; // validateCsrfToken уже обработал ошибку
-            }
+        if ($this->request->method() === 'POST') {
+            // Проверка CSRF теперь в middleware, поэтому удаляем validateCsrfTokenDirect
+            $username = trim($this->request->post('username', ''));
+            $password = $this->request->post('password', '');
 
-            $username = trim($_POST['username'] ?? '');
-            $password = $_POST['password'] ?? '';
+            // Валидация
+            $validationErrors = $this->validate([
+                'username' => 'required',
+                'password' => 'required'
+            ]);
 
-            // Базовая валидация
-            if (empty($username)) {
-                $errors['username'] = 'Имя пользователя обязательно';
-            }
-
-            if (empty($password)) {
-                $errors['password'] = 'Пароль обязателен';
-            }
-
-            if (empty($errors) && $this->authService) {
+            if (empty($validationErrors) && $this->authService) {
                 if ($this->authService->attemptLogin($username, $password)) {
                     $_SESSION['flash_message'] = 'Вы успешно вошли в систему';
                     return $this->redirect('/admin');
                 } else {
                     $error = 'Неверные учетные данные';
-                    sleep(1); // Задержка при неудачной попытке
+                    sleep(1);
                 }
+            } else {
+                $errors = $validationErrors;
             }
         }
 
@@ -63,14 +53,15 @@ class AuthController extends Controller
                 'title' => 'Вход в панель администратора',
                 'error' => $error,
                 'errors' => $errors,
-                'csrf_token' => $_SESSION['csrf_token']
+                'csrf_token' => $_SESSION['csrf_token'] ?? ''
             ]);
         } catch (\Exception $e) {
-            // Если ошибка в шаблоне, покажем простую форму
-            return $this->showSimpleLoginForm($error, $errors, $_SESSION['csrf_token']);
+            return $this->showSimpleLoginForm($error, $errors, $_SESSION['csrf_token'] ?? '');
         }
     }
-
+    /**
+     * Простая форма логина как fallback
+     */
     private function showSimpleLoginForm(?string $error, array $errors, string $csrfToken): Response
     {
         $html = '<!DOCTYPE html>

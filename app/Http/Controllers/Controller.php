@@ -12,7 +12,7 @@ abstract class Controller
 {
     protected TemplateEngine $template;
     protected ?AuthService $authService = null;
-    protected ?Request $request = null;
+    protected Request $request;
 
     public function __construct(
         TemplateEngine $template = null,
@@ -36,7 +36,7 @@ abstract class Controller
             }
         } catch (\Exception $e) {
             if (env('APP_DEBUG', false)) {
-                error_log("Controller: Error getting AuthService from container: " . $e->getMessage());
+                error_log("Controller: Error getting AuthService: " . $e->getMessage());
             }
         }
 
@@ -61,62 +61,7 @@ abstract class Controller
 
     protected function isLoggedIn(): bool
     {
-        return $this->authService && $this->authService->isLoggedIn();
-    }
-
-    protected function requireLogin(): bool
-    {
-        if (!$this->isLoggedIn()) {
-            $_SESSION['redirect_url'] = $this->request->uri();
-            $this->redirect('/login')->send();
-            return false;
-        }
-        return true;
-    }
-
-    protected function validateCsrfToken(): bool
-    {
-        if ($this->request->method() !== 'POST') {
-            return true;
-        }
-
-        $token = $this->request->getCsrfToken();
-
-        // Если есть authService, используем его метод
-        if ($this->authService) {
-            if (!$this->authService->validateCsrfToken($token)) {
-                $this->handleCsrfError();
-                return false;
-            }
-            return true;
-        }
-
-        // Иначе проверяем напрямую через сессию
-        if (!isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
-            $this->handleCsrfError();
-            return false;
-        }
-
-        return true;
-    }
-
-    private function handleCsrfError(): void
-    {
-        if ($this->request->isJson() || $this->request->isAjax()) {
-            $this->json(['error' => 'Invalid CSRF token'], 403)->send();
-        } else {
-            $_SESSION['flash_error'] = 'Недействительный CSRF токен';
-            $this->redirect($this->request->server('HTTP_REFERER', '/'))->send();
-        }
-    }
-
-    protected function requireApiAuth(): bool
-    {
-        if (!$this->isLoggedIn()) {
-            $this->json(['error' => 'Unauthorized'], 401)->send();
-            return false;
-        }
-        return true;
+        return isset($_SESSION['user_id']) && isset($_SESSION['is_admin']);
     }
 
     protected function getCurrentUser()

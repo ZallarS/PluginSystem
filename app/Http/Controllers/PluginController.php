@@ -7,10 +7,7 @@ class PluginController extends Controller
 {
     public function index()
     {
-        if (!isset($_SESSION['user_id'])) {
-            return $this->redirect('/login');
-        }
-
+        // Проверка аутентификации теперь в middleware
         $pluginManager = \Plugins\PluginManager::getInstance();
         $plugins = $pluginManager->getPlugins();
 
@@ -22,24 +19,12 @@ class PluginController extends Controller
 
     public function activate($pluginName)
     {
-        if (!isset($_POST['_token']) || $_POST['_token'] !== ($_SESSION['csrf_token'] ?? '')) {
-            $_SESSION['flash_error'] = "Недействительный CSRF токен";
-            $this->redirect('/admin/plugins');
-            return;
-        }
-
-        if (!isset($_SESSION['user_id'])) {
-            $_SESSION['flash_error'] = "Требуется авторизация";
-            $this->redirect('/login');
-            return;
-        }
-
+        // Проверка аутентификации и CSRF теперь в middleware
         $pluginManager = \Plugins\PluginManager::getInstance();
 
         if (!$pluginManager->pluginExists($pluginName)) {
             $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
-            $this->redirect('/admin/plugins');
-            return;
+            return $this->redirect('/admin/plugins');
         }
 
         $result = $pluginManager->activatePlugin($pluginName);
@@ -51,29 +36,17 @@ class PluginController extends Controller
             $_SESSION['flash_error'] = "Не удалось активировать плагин {$pluginName}";
         }
 
-        $this->redirect('/admin/plugins');
+        return $this->redirect('/admin/plugins');
     }
 
     public function deactivate($pluginName)
     {
-        if (!isset($_POST['_token']) || $_POST['_token'] !== ($_SESSION['csrf_token'] ?? '')) {
-            $_SESSION['flash_error'] = "Недействительный CSRF токен";
-            $this->redirect('/admin/plugins');
-            return;
-        }
-
-        if (!isset($_SESSION['user_id'])) {
-            $_SESSION['flash_error'] = "Требуется авторизация";
-            $this->redirect('/login');
-            return;
-        }
-
+        // Проверка аутентификации и CSRF теперь в middleware
         $pluginManager = \Plugins\PluginManager::getInstance();
 
         if (!$pluginManager->pluginExists($pluginName)) {
             $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
-            $this->redirect('/admin/plugins');
-            return;
+            return $this->redirect('/admin/plugins');
         }
 
         $result = $pluginManager->deactivatePlugin($pluginName);
@@ -85,6 +58,6 @@ class PluginController extends Controller
             $_SESSION['flash_error'] = "Не удалось деактивировать плагин {$pluginName}";
         }
 
-        $this->redirect('/admin/plugins');
+        return $this->redirect('/admin/plugins');
     }
 }

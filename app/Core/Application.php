@@ -137,6 +137,23 @@ class Application
                 return new \App\Services\CacheService($cachePath, $ttl);
             });
 
+            // Регистрируем Middleware
+            $this->container->singleton(\App\Http\Middleware\StartSession::class, function() {
+                return new \App\Http\Middleware\StartSession();
+            });
+
+            $this->container->singleton(\App\Http\Middleware\Authenticate::class, function($container) {
+                return new \App\Http\Middleware\Authenticate();
+            });
+
+            $this->container->singleton(\App\Http\Middleware\VerifyCsrfToken::class, function() {
+                return new \App\Http\Middleware\VerifyCsrfToken();
+            });
+
+            $this->container->singleton(\App\Http\Middleware\HandleJsonRequests::class, function() {
+                return new \App\Http\Middleware\HandleJsonRequests();
+            });
+
 
         } catch (\Exception $e) {
             // Логируем только в режиме отладки
@@ -171,39 +188,70 @@ class Application
     {
         $this->router = new Router();
 
-        // Базовые маршруты
-        $this->router->get('/', 'App\Http\Controllers\HomeController@index');
-        $this->router->get('/admin', 'App\Http\Controllers\AdminController@dashboard');
+        // Определяем группы маршрутов
+        $this->defineWebRoutes();
+        $this->defineApiRoutes();
+    }
 
-        // Аутентификация
-        $this->router->get('/login', 'App\Http\Controllers\AuthController@login');
-        $this->router->post('/login', 'App\Http\Controllers\AuthController@login');
-        $this->router->get('/logout', 'App\Http\Controllers\AuthController@logout');
-        $this->router->get('/quick-login', 'App\Http\Controllers\AuthController@quickLogin');
+    private function defineApiRoutes(): void
+    {
+        // Группа API маршрутов (без CSRF, с JSON поддержкой)
+        $this->router->group([
+            'prefix' => '/api',
+            'middleware' => 'api'
+        ], function ($router) {
+            // Здесь будут API маршруты
+            $router->get('/status', function() {
+                return Response::json(['status' => 'ok', 'timestamp' => time()]);
+            });
 
-        // Управление плагинами
-        $this->router->get('/admin/plugins', 'App\Http\Controllers\PluginController@index');
-        $this->router->post('/admin/plugins/activate/{pluginName}', 'App\Http\Controllers\PluginController@activate');
-        $this->router->post('/admin/plugins/deactivate/{pluginName}', 'App\Http\Controllers\PluginController@deactivate');
-
-        // Управление виджетами
-        $this->router->post('/admin/save-widgets', 'App\Http\Controllers\AdminController@saveWidgets');
-        $this->router->post('/admin/toggle-widget', 'App\Http\Controllers\AdminController@toggleWidget');
-        $this->router->get('/admin/get-hidden-widgets', 'App\Http\Controllers\AdminController@getHiddenWidgets');
-        $this->router->get('/admin/widget-info/{widgetId}', 'App\Http\Controllers\AdminController@getWidgetInfo');
-        $this->router->get('/admin/widget-html/{widgetId}', 'App\Http\Controllers\AdminController@getWidgetHtml');
-
-        // Дополнительные маршруты
-        $this->router->get('/about', function() {
-            echo "Страница о системе (в разработке)";
+            $router->get('/widgets', function() {
+                $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
+                $widgets = $widgetManager->getWidgets();
+                return Response::json($widgets);
+            });
         });
+    }
 
-        $this->router->get('/docs', function() {
-            echo "Документация (в разработке)";
+    private function defineWebRoutes(): void
+    {
+        // Группа web маршрутов (с сессией, CSRF и аутентификацией)
+        $this->router->group([
+            'middleware' => 'web'
+        ], function ($router) {
+            // Базовые маршруты
+            $router->get('/', 'App\Http\Controllers\HomeController@index');
+            $router->get('/about', function() {
+                echo "Страница о системе (в разработке)";
+            });
+            $router->get('/docs', function() {
+                echo "Документация (в разработке)";
+            });
+
+            // Аутентификация
+            $router->get('/login', 'App\Http\Controllers\AuthController@login');
+            $router->post('/login', 'App\Http\Controllers\AuthController@login');
+            $router->get('/logout', 'App\Http\Controllers\AuthController@logout');
+            $router->get('/quick-login', 'App\Http\Controllers\AuthController@quickLogin');
+
+            // Административные маршруты
+            $router->get('/admin', 'App\Http\Controllers\AdminController@dashboard');
+
+            // Управление плагинами
+            $router->get('/admin/plugins', 'App\Http\Controllers\PluginController@index');
+            $router->post('/admin/plugins/activate/{pluginName}', 'App\Http\Controllers\PluginController@activate');
+            $router->post('/admin/plugins/deactivate/{pluginName}', 'App\Http\Controllers\PluginController@deactivate');
+
+            // Управление виджетами
+            $router->post('/admin/save-widgets', 'App\Http\Controllers\AdminController@saveWidgets');
+            $router->post('/admin/toggle-widget', 'App\Http\Controllers\AdminController@toggleWidget');
+            $router->get('/admin/get-hidden-widgets', 'App\Http\Controllers\AdminController@getHiddenWidgets');
+            $router->get('/admin/widget-info/{widgetId}', 'App\Http\Controllers\AdminController@getWidgetInfo');
+            $router->get('/admin/widget-html/{widgetId}', 'App\Http\Controllers\AdminController@getWidgetHtml');
+
+            // Тестовый маршрут
+            $router->get('/test', 'App\Http\Controllers\TestController@index');
         });
-
-        // Тестовый маршрут
-        $this->router->get('/test', 'App\Http\Controllers\TestController@index');
     }
 
     private function initPlugins(): void

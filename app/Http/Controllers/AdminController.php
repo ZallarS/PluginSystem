@@ -7,11 +7,7 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        if (!$this->requireLogin()) {
-            return;
-        }
-
-        // Получаем менеджер виджетов
+        // Проверка аутентификации теперь в middleware - удаляем вызов requireLogin()
         $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
         $widgetsGrid = $widgetManager->renderWidgetsGrid();
 
@@ -26,16 +22,7 @@ class AdminController extends Controller
 
     public function saveWidgets()
     {
-        // Проверяем авторизацию
-        if (!$this->requireApiAuth()) {
-            return;
-        }
-
-        // Проверяем CSRF
-        if (!$this->validateCsrfToken()) {
-            return;
-        }
-
+        // Проверка аутентификации и CSRF теперь в middleware - удаляем вызовы requireApiAuth() и validateCsrfToken()
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $widgets = json_decode($_POST['widgets'] ?? '{}', true);
 
@@ -54,16 +41,7 @@ class AdminController extends Controller
 
     public function toggleWidget()
     {
-        // Проверяем авторизацию
-        if (!$this->requireApiAuth()) {
-            return;
-        }
-
-        // Проверяем CSRF
-        if (!$this->validateCsrfToken()) {
-            return;
-        }
-
+        // Проверка аутентификации и CSRF теперь в middleware - удаляем вызовы requireApiAuth() и validateCsrfToken()
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $widgetId = $_POST['widget_id'] ?? '';
             $action = $_POST['action'] ?? '';
@@ -72,14 +50,14 @@ class AdminController extends Controller
                 return $this->json(['error' => 'Widget ID is required'], 400);
             }
 
-            $widgetService = $this->getWidgetService();
+            $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
 
             if ($action === 'hide_widget') {
-                $widgetService->toggleWidget($widgetId, false);
+                $widgetManager->toggleWidget($widgetId, false);
                 return $this->json(['success' => true, 'message' => 'Виджет скрыт']);
             } elseif ($action === 'show_widget') {
-                $widgetService->toggleWidget($widgetId, true);
-                $html = $widgetService->renderWidget($widgetId);
+                $widgetManager->toggleWidget($widgetId, true);
+                $html = $widgetManager->renderWidget($widgetId);
 
                 return $this->json([
                     'success' => true,
@@ -94,31 +72,26 @@ class AdminController extends Controller
         return $this->json(['error' => 'Invalid request'], 400);
     }
 
-    private function getWidgetService()
-    {
-        try {
-            $app = \App\Core\Application::getInstance();
-            if ($app && $app->getContainer()->has(\App\Services\WidgetService::class)) {
-                return $app->getContainer()->get(\App\Services\WidgetService::class);
-            }
-        } catch (\Exception $e) {
-            error_log("Error getting WidgetService: " . $e->getMessage());
-        }
-
-        // Fallback
-        return new \App\Services\WidgetService();
-    }
-
     public function getHiddenWidgets()
     {
-        // Проверяем авторизацию
-        if (!$this->requireApiAuth()) {
-            return;
-        }
-
+        // Проверка аутентификации теперь в middleware - удаляем вызов requireApiAuth()
         try {
-            $widgetService = $this->getWidgetService();
-            $hiddenWidgets = $widgetService->getHiddenWidgets();
+            $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
+            $allWidgets = $widgetManager->getAllWidgets();
+            $hiddenWidgets = [];
+
+            foreach ($allWidgets as $widgetId => $widgetData) {
+                if (!$widgetManager->isWidgetVisible($widgetId)) {
+                    $hiddenWidgets[] = [
+                        'id' => $widgetId,
+                        'title' => $widgetData['title'] ?? 'Без названия',
+                        'icon' => $widgetData['icon'] ?? 'bi-question-circle',
+                        'description' => $widgetData['description'] ?? 'Описание отсутствует',
+                        'source' => $widgetData['source'] ?? 'system',
+                        'plugin_name' => $widgetData['plugin_name'] ?? null
+                    ];
+                }
+            }
 
             return $this->json([
                 'success' => true,
@@ -133,11 +106,7 @@ class AdminController extends Controller
 
     public function getWidgetInfo($widgetId)
     {
-        // Проверяем авторизацию
-        if (!$this->requireApiAuth()) {
-            return;
-        }
-
+        // Проверка аутентификации теперь в middleware - удаляем вызов requireApiAuth()
         $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
         $widget = $widgetManager->getWidget($widgetId);
 
@@ -159,11 +128,7 @@ class AdminController extends Controller
 
     public function getWidgetHtml($widgetId)
     {
-        // Проверяем авторизацию
-        if (!$this->requireApiAuth()) {
-            return;
-        }
-
+        // Проверка аутентификации теперь в middleware - удаляем вызов requireApiAuth()
         $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
         $widget = $widgetManager->getWidget($widgetId);
 

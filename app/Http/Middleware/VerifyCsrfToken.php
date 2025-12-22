@@ -3,80 +3,66 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-class VerifyCsrfToken
+use App\Http\Request;
+use App\Http\Response;
+
+class VerifyCsrfToken extends Middleware
 {
-    /**
-     * Исключения для проверки CSRF
-     */
-    protected $except = [
-        '/api/*', // если будут API endpoints
+    protected array $except = [
+        '/api/*',
+        '/quick-login'
     ];
 
-    /**
-     * Обработка запроса
-     */
-    public function handle($request, \Closure $next)
+    public function handle(Request $request, callable $next): Response
     {
-        if ($this->isReading($request) ||
-            $this->inExceptArray($request) ||
-            $this->tokensMatch($request)) {
+        if ($this->shouldSkip($request)) {
             return $next($request);
         }
 
-        throw new \Exception('CSRF token mismatch.');
-    }
-
-    /**
-     * Проверяет, является ли запрос read-only
-     */
-    protected function isReading($request)
-    {
-        return in_array($request['method'], ['HEAD', 'GET', 'OPTIONS']);
-    }
-
-    /**
-     * Проверяет, находится ли URI в исключениях
-     */
-    protected function inExceptArray($request)
-    {
-        $uri = $request['uri'] ?? '/';
-
-        foreach ($this->except as $except) {
-            if ($except !== '/') {
-                $except = trim($except, '/');
-            }
-
-            if (strpos($uri, $except) === 0) {
-                return true;
-            }
+        if ($this->isReading($request)) {
+            return $next($request);
         }
 
-        return false;
+        if (!$this->tokensMatch($request)) {
+            return $this->handleTokenMismatch($request);
+        }
+
+        return $next($request);
     }
 
-    /**
-     * Проверяет совпадение токенов
-     */
-    protected function tokensMatch($request)
+    protected function isReading(Request $request): bool
+    {
+        return in_array($request->method(), ['HEAD', 'GET', 'OPTIONS']);
+    }
+
+    protected function tokensMatch(Request $request): bool
     {
         $token = $this->getTokenFromRequest($request);
 
-        return is_string($_SESSION['csrf_token'] ?? null) &&
-            is_string($token) &&
-            hash_equals($_SESSION['csrf_token'], $token);
+        return isset($_SESSION['csrf_token']) &&
+            hash_equals($_SESSION['csrf_token'], (string)$token);
     }
 
-    /**
-     * Получает токен из запроса
-     */
-    protected function getTokenFromRequest($request)
+    protected function getTokenFromRequest(Request $request)
     {
-        $token = $request['post']['_token'] ?? $request['headers']['X-CSRF-TOKEN'] ?? null;
+        $token = $request->post('_token') ?: $request->header('X-CSRF-TOKEN');
 
-        if (!$token && isset($request['headers']['X-XSRF-TOKEN'])) {
-            $token = $request['headers']['X-XSRF-TOKEN'];
+        if (!$token && $request->header('X-XSRF-TOKEN')) {
+            $token = $request->header('X-XSRF-TOKEN');
         }
 
         return $token;
+    }
+
+    protected function handleTokenMismatch(Request $request): Response
+    {
+        if ($request->isJson() || $request->isAjax()) {
+            return Response::json(['error' => 'Invalid CSRF token'], 403);
+        }
+
+        $_SESSION['flash_error'] = 'Недействительный CSRF токен';
+        $redirectUrl = $request->server('HTTP_REFERER', '/');
+
+        return new Response('', 302, ['Location' => $redirectUrl]);
     }
 }
