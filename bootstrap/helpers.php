@@ -182,8 +182,10 @@ if (!function_exists('old')) {
 if (!function_exists('session')) {
     function session($key = null, $value = null)
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            require_once dirname(__DIR__) . '/bootstrap/session.php';
+        // Убедимся, что сессия запущена
+        if (session_status() === PHP_SESSION_NONE && !defined('SESSION_STARTED_BY_MIDDLEWARE')) {
+            // Минимальная инициализация для хелперов
+            session_start();
         }
 
         if ($key === null) {

@@ -33,8 +33,13 @@ require_once $autoloader;
 require_once dirname(__DIR__) . '/bootstrap/helpers.php';
 
 // Начинаем сессию
-if (session_status() === PHP_SESSION_NONE) {
-    require_once dirname(__DIR__) . '/bootstrap/session.php';
+if (session_status() === PHP_SESSION_NONE && !defined('SESSION_STARTED_BY_MIDDLEWARE')) {
+    // Базовые настройки безопасности
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? '1' : '0');
+    ini_set('session.cookie_samesite', 'Lax');
+
+    session_start();
 }
 
 // Запускаем приложение

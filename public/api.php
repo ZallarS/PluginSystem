@@ -1,3 +1,0 @@
-<?php
-
-// public/api.php

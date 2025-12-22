@@ -134,9 +134,33 @@ class AuthController extends Controller
 
     public function quickLogin(): Response
     {
-        // Только для development
-        if (env('APP_ENV', 'production') === 'production') {
-            return new Response('Quick login disabled in production', 403);
+        // Быстрый вход ТОЛЬКО для локальной разработки
+        $allowedEnvironments = ['local', 'development', 'testing'];
+        $currentEnv = env('APP_ENV', 'production');
+
+        // Проверяем, что мы в разрешенном окружении
+        if (!in_array($currentEnv, $allowedEnvironments)) {
+            // Логируем попытку несанкционированного доступа
+            if (class_exists('App\Core\Logger')) {
+                $logger = \App\Core\Logger::getInstance();
+                $logger->warning('Quick login attempt in production', [
+                    'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+                ]);
+            }
+
+            // Возвращаем 404, чтобы не раскрывать существование метода
+            return new Response('Page not found', 404);
+        }
+
+        // Дополнительная проверка по IP для development окружения
+        if ($currentEnv === 'development') {
+            $allowedIps = env('DEVELOPMENT_IPS', '127.0.0.1');
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
+
+            if (!in_array($clientIp, explode(',', $allowedIps))) {
+                return new Response('Access denied', 403);
+            }
         }
 
         $username = 'admin';

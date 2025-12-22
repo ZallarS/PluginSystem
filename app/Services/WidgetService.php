@@ -8,18 +8,23 @@ use App\Core\HookManager;
 
 class WidgetService
 {
+    private WidgetRepository $widgetRepository;
     private WidgetManager $widgetManager;
     private HookManager $hookManager;
     private ?CacheService $cacheService;
 
-    public function __construct(
-        WidgetManager $widgetManager = null,
-        HookManager $hookManager = null,
-        CacheService $cacheService = null
-    ) {
-        $this->widgetManager = $widgetManager ?? WidgetManager::getInstance();
-        $this->hookManager = $hookManager ?? HookManager::getInstance();
-        $this->cacheService = $cacheService;
+    public function __construct(?string $cachePath = null, ?int $defaultTtl = null)
+    {
+        // Получаем настройки из конфига
+        $config = config('widgets.cache', []);
+
+        $this->cachePath = $cachePath ?? $config['path'] ?? storage_path('cache');
+        $this->defaultTtl = $defaultTtl ?? $config['ttl'] ?? 3600;
+
+        // Создаем директорию если не существует
+        if (!file_exists($this->cachePath)) {
+            mkdir($this->cachePath, 0755, true);
+        }
     }
 
     /**
@@ -29,15 +34,19 @@ class WidgetService
     {
         $cacheKey = 'widgets_visible_' . md5(json_encode($_SESSION['user_widgets'] ?? []));
 
-        if ($this->cacheService && $this->cacheService->has($cacheKey)) {
+        // Проверяем конфигурацию
+        $cacheEnabled = config('widgets.cache.enabled', true);
+
+        if ($cacheEnabled && $this->cacheService && $this->cacheService->has($cacheKey)) {
             return $this->cacheService->get($cacheKey);
         }
 
         $widgets = $this->widgetManager->getWidgets();
         $widgets = $this->hookManager->applyFilter('widgets_prepare', $widgets);
 
-        if ($this->cacheService) {
-            $this->cacheService->put($cacheKey, $widgets, 300); // 5 минут
+        if ($cacheEnabled && $this->cacheService) {
+            $cacheTtl = config('widgets.cache.ttl', 300);
+            $this->cacheService->put($cacheKey, $widgets, $cacheTtl);
         }
 
         return $widgets;
@@ -114,7 +123,7 @@ class WidgetService
      */
     public function getWidgetInfo(string $widgetId): ?array
     {
-        $widget = $this->widgetManager->getWidget($widgetId);
+        $widget = $this->widgetRepository->getWidgetInfo($widgetId);
 
         if (!$widget) {
             return null;
@@ -145,22 +154,7 @@ class WidgetService
      */
     public function getHiddenWidgets(): array
     {
-        $allWidgets = $this->widgetManager->getAllWidgets();
-        $hiddenWidgets = [];
-
-        foreach ($allWidgets as $widgetId => $widgetData) {
-            if (!$this->widgetManager->isWidgetVisible($widgetId)) {
-                $hiddenWidgets[] = [
-                    'id' => $widgetId,
-                    'title' => $widgetData['title'] ?? 'Без названия',
-                    'icon' => $widgetData['icon'] ?? 'bi-question-circle',
-                    'description' => $widgetData['description'] ?? 'Описание отсутствует',
-                    'source' => $widgetData['source'] ?? 'system',
-                    'plugin_name' => $widgetData['plugin_name'] ?? null
-                ];
-            }
-        }
-
-        return $hiddenWidgets;
+        return $this->widgetRepository->getHidden();
     }
+
 }

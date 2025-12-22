@@ -131,25 +131,39 @@ class Router
 
     private function runAction($action, array $parameters)
     {
-        if (is_string($action)) {
+        $controller = null;
+        $method = null;
+
+        // Обработка массива [Controller::class, 'method']
+        if (is_array($action)) {
+            $controller = $action[0];
+            $method = $action[1];
+        }
+        // Обработка строки 'Controller@method'
+        elseif (is_string($action)) {
             list($controller, $method) = explode('@', $action);
-
-            if (!class_exists($controller)) {
-                throw new \Exception("Controller class not found: {$controller}");
-            }
-
-            $controllerInstance = $this->createController($controller);
-
-            if (method_exists($controllerInstance, $method)) {
-                return call_user_func_array([$controllerInstance, $method], array_values($parameters));
-            } else {
-                throw new \Exception("Method {$method} not found in controller {$controller}");
-            }
-        } elseif (is_callable($action)) {
+        }
+        // Обработка callable
+        elseif (is_callable($action)) {
             return call_user_func_array($action, array_values($parameters));
         }
 
-        throw new \Exception("Invalid route action");
+        // Если не удалось определить контроллер и метод
+        if (!$controller || !$method) {
+            throw new \Exception("Invalid route action");
+        }
+
+        if (!class_exists($controller)) {
+            throw new \Exception("Controller class not found: {$controller}");
+        }
+
+        $controllerInstance = $this->createController($controller);
+
+        if (method_exists($controllerInstance, $method)) {
+            return call_user_func_array([$controllerInstance, $method], array_values($parameters));
+        } else {
+            throw new \Exception("Method {$method} not found in controller {$controller}");
+        }
     }
 
     private function getRouteMiddleware(Route $route): array

@@ -17,8 +17,15 @@ class StartSession extends Middleware
         }
 
         if (session_status() === PHP_SESSION_NONE) {
-            // Простая инициализация сессии без сложной логики
+            // Безопасные настройки сессии
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? '1' : '0');
+            ini_set('session.cookie_samesite', 'Lax');
+
             session_start();
+
+            // Флаг, что сессия инициализирована middleware
+            define('SESSION_STARTED_BY_MIDDLEWARE', true);
 
             // Инициализируем CSRF токен если его нет
             if (!isset($_SESSION['csrf_token'])) {
@@ -28,6 +35,18 @@ class StartSession extends Middleware
             // Инициализируем user_widgets если не существует
             if (!isset($_SESSION['user_widgets'])) {
                 $_SESSION['user_widgets'] = [];
+            }
+
+            // Инициализируем счетчик запросов для регенерации сессии
+            if (!isset($_SESSION['request_count'])) {
+                $_SESSION['request_count'] = 0;
+            }
+
+            // Регенерируем ID сессии каждые 100 запросов
+            $_SESSION['request_count']++;
+            if ($_SESSION['request_count'] > 100) {
+                session_regenerate_id(true);
+                $_SESSION['request_count'] = 0;
             }
         }
 

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 
 class AdminController extends Controller
 {
+    private ?WidgetRepository $widgetRepository = null;
+
     public function dashboard()
     {
         // Проверка аутентификации теперь в middleware - удаляем вызов requireLogin()
@@ -74,30 +76,13 @@ class AdminController extends Controller
 
     public function getHiddenWidgets()
     {
-        // Проверка аутентификации теперь в middleware - удаляем вызов requireApiAuth()
         try {
-            $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
-            $allWidgets = $widgetManager->getAllWidgets();
-            $hiddenWidgets = [];
-
-            foreach ($allWidgets as $widgetId => $widgetData) {
-                if (!$widgetManager->isWidgetVisible($widgetId)) {
-                    $hiddenWidgets[] = [
-                        'id' => $widgetId,
-                        'title' => $widgetData['title'] ?? 'Без названия',
-                        'icon' => $widgetData['icon'] ?? 'bi-question-circle',
-                        'description' => $widgetData['description'] ?? 'Описание отсутствует',
-                        'source' => $widgetData['source'] ?? 'system',
-                        'plugin_name' => $widgetData['plugin_name'] ?? null
-                    ];
-                }
-            }
+            $hiddenWidgets = $this->getWidgetRepository()->getHidden();
 
             return $this->json([
                 'success' => true,
                 'hidden_widgets' => $hiddenWidgets
             ]);
-
         } catch (\Exception $e) {
             error_log("Error in getHiddenWidgets: " . $e->getMessage());
             return $this->json(['error' => 'Internal server error'], 500);
@@ -106,20 +91,12 @@ class AdminController extends Controller
 
     public function getWidgetInfo($widgetId)
     {
-        // Проверка аутентификации теперь в middleware - удаляем вызов requireApiAuth()
-        $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
-        $widget = $widgetManager->getWidget($widgetId);
+        $widget = $this->getWidgetRepository()->getWidgetInfo($widgetId);
 
         if ($widget) {
             return $this->json([
                 'success' => true,
-                'widget' => [
-                    'id' => $widgetId,
-                    'title' => $widget['title'] ?? '',
-                    'description' => $widget['description'] ?? '',
-                    'icon' => $widget['icon'] ?? '',
-                    'size' => $widget['size'] ?? 'medium'
-                ]
+                'widget' => $widget
             ]);
         }
 
