@@ -16,18 +16,7 @@ class SystemWidgetsPlugin
         $this->widgetManager = WidgetManager::getInstance();
         $this->hookManager = HookManager::getInstance();
 
-        $widgets = $this->getSystemWidgets();
-        $widgetIds = array_column($widgets, 'id');
-
-        // Регистрируем виджеты
         $this->registerSystemWidgets();
-
-        // Инициализируем их как активные по умолчанию
-        \App\Core\Widgets\WidgetInitializer::initializeDefaultWidgets(
-            $this->widgetManager,
-            $widgetIds
-        );
-
         $this->registerHooks();
     }
 
@@ -164,7 +153,7 @@ class SystemWidgetsPlugin
 
     public function registerRoutes($router)
     {
-        // Маршруты для системного плагина (если понадобятся)
+        // Маршруты для системного плагина
         $router->get('/system-widgets/test', function() {
             echo "Test route for SystemWidgets plugin";
         });

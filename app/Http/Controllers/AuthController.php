@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\AuthService;
+use App\Http\Request;
+use App\Http\Response;
 
 class AuthController extends Controller
 {
@@ -16,15 +18,14 @@ class AuthController extends Controller
 
         // Если уже авторизован - редирект
         if ($this->authService && $this->authService->isLoggedIn()) {
-            $this->redirect('/admin');
-            return;
+            return $this->redirect('/admin');
         }
 
         $error = null;
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Проверяем CSRF токен
+            // Проверяем CSRF
             if (!$this->validateCsrfToken()) {
                 return; // validateCsrfToken уже обработал ошибку
             }
@@ -44,8 +45,7 @@ class AuthController extends Controller
             if (empty($errors) && $this->authService) {
                 if ($this->authService->attemptLogin($username, $password)) {
                     $_SESSION['flash_message'] = 'Вы успешно вошли в систему';
-                    $this->redirect('/admin');
-                    return;
+                    return $this->redirect('/admin');
                 } else {
                     $error = 'Неверные учетные данные';
                     sleep(1); // Задержка при неудачной попытке
@@ -59,7 +59,7 @@ class AuthController extends Controller
         }
 
         try {
-            echo $this->view('auth.login', [
+            return $this->view('auth.login', [
                 'title' => 'Вход в панель администратора',
                 'error' => $error,
                 'errors' => $errors,
@@ -67,49 +67,13 @@ class AuthController extends Controller
             ]);
         } catch (\Exception $e) {
             // Если ошибка в шаблоне, покажем простую форму
-            $this->showSimpleLoginForm($error, $errors, $_SESSION['csrf_token']);
+            return $this->showSimpleLoginForm($error, $errors, $_SESSION['csrf_token']);
         }
     }
 
-    public function logout()
+    private function showSimpleLoginForm(?string $error, array $errors, string $csrfToken): Response
     {
-        if ($this->authService) {
-            $this->authService->logout();
-        } else {
-            // Минимальная реализация
-            session_destroy();
-        }
-
-        $_SESSION['flash_message'] = 'Вы успешно вышли из системы';
-        $this->redirect('/');
-    }
-
-    public function quickLogin()
-    {
-        // Только для development
-        if (env('APP_ENV', 'production') === 'production') {
-            http_response_code(403);
-            die('Quick login disabled in production');
-        }
-
-        $username = 'admin';
-        $password = env('ADMIN_PASSWORD', 'admin');
-
-        if ($this->authService && $this->authService->attemptLogin($username, $password)) {
-            $_SESSION['flash_message'] = 'Быстрый вход выполнен';
-            $this->redirect('/admin');
-        } else {
-            $_SESSION['flash_error'] = 'Ошибка быстрого входа';
-            $this->redirect('/');
-        }
-    }
-
-    /**
-     * Простая форма логина как fallback
-     */
-    private function showSimpleLoginForm(?string $error, array $errors, string $csrfToken): void
-    {
-        echo '<!DOCTYPE html>
+        $html = '<!DOCTYPE html>
         <html lang="ru">
         <head>
             <meta charset="UTF-8">
@@ -134,15 +98,15 @@ class AuthController extends Controller
                 <h2>Вход в систему</h2>';
 
         if ($error) {
-            echo '<div class="alert alert-danger">' . htmlspecialchars($error) . '</div>';
+            $html .= '<div class="alert alert-danger">' . htmlspecialchars($error) . '</div>';
         }
 
-        echo '<form method="POST" action="/login">
+        $html .= '<form method="POST" action="/login">
                     <input type="hidden" name="_token" value="' . htmlspecialchars($csrfToken) . '">
                     
                     <div class="form-group">
                         <label for="username">Имя пользователя</label>
-                        <input type="text" id="username" name="username" value="' . htmlspecialchars($_POST['username'] ?? '') . '" required>
+                        <input type="text" id="username" name="username" value="' . htmlspecialchars($this->request->post('username', '')) . '" required>
                         ' . (isset($errors['username']) ? '<div class="error">' . htmlspecialchars($errors['username']) . '</div>' : '') . '
                     </div>
                     
@@ -161,5 +125,38 @@ class AuthController extends Controller
             </div>
         </body>
         </html>';
+
+        return new Response($html);
+    }
+
+    public function logout(): Response
+    {
+        if ($this->authService) {
+            $this->authService->logout();
+        } else {
+            session_destroy();
+        }
+
+        $_SESSION['flash_message'] = 'Вы успешно вышли из системы';
+        return $this->redirect('/');
+    }
+
+    public function quickLogin(): Response
+    {
+        // Только для development
+        if (env('APP_ENV', 'production') === 'production') {
+            return new Response('Quick login disabled in production', 403);
+        }
+
+        $username = 'admin';
+        $password = env('ADMIN_PASSWORD', 'admin');
+
+        if ($this->authService && $this->authService->attemptLogin($username, $password)) {
+            $_SESSION['flash_message'] = 'Быстрый вход выполнен';
+            return $this->redirect('/admin');
+        } else {
+            $_SESSION['flash_error'] = 'Ошибка быстрого входа';
+            return $this->redirect('/');
+        }
     }
 }

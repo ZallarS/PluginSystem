@@ -5,25 +5,29 @@ namespace App\Http\Controllers;
 
 use App\Core\View\TemplateEngine;
 use App\Services\AuthService;
-use App\Core\Application;
+use App\Http\Request;
+use App\Http\Response;
 
 abstract class Controller
 {
     protected TemplateEngine $template;
     protected ?AuthService $authService = null;
+    protected ?Request $request = null;
 
     public function __construct(
         TemplateEngine $template = null,
-        AuthService $authService = null
+        AuthService $authService = null,
+        Request $request = null
     ) {
         $this->template = $template ?? new TemplateEngine();
         $this->authService = $authService ?? $this->getAuthServiceFromContainer();
+        $this->request = $request ?? Request::createFromGlobals();
     }
 
     private function getAuthServiceFromContainer(): ?AuthService
     {
         try {
-            $app = Application::getInstance();
+            $app = \App\Core\Application::getInstance();
             if ($app && method_exists($app, 'getContainer')) {
                 $container = $app->getContainer();
                 if ($container && $container->has(AuthService::class)) {
@@ -31,7 +35,6 @@ abstract class Controller
                 }
             }
         } catch (\Exception $e) {
-            // Только в режиме отладки логируем ошибку
             if (env('APP_DEBUG', false)) {
                 error_log("Controller: Error getting AuthService from container: " . $e->getMessage());
             }
@@ -40,23 +43,20 @@ abstract class Controller
         return null;
     }
 
-    protected function view($template, $data = [])
+    protected function view($template, $data = []): Response
     {
-        return $this->template->render($template, $data);
+        $content = $this->template->render($template, $data);
+        return new Response($content);
     }
 
-    protected function json($data, $statusCode = 200)
+    protected function json($data, $statusCode = 200): Response
     {
-        http_response_code($statusCode);
-        header('Content-Type: application/json');
-        echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        exit;
+        return Response::json($data, $statusCode);
     }
 
-    protected function redirect($url, $statusCode = 302)
+    protected function redirect($url, $statusCode = 302): Response
     {
-        header("Location: {$url}", true, $statusCode);
-        exit;
+        return Response::redirect($url, $statusCode);
     }
 
     protected function isLoggedIn(): bool
@@ -64,11 +64,11 @@ abstract class Controller
         return $this->authService && $this->authService->isLoggedIn();
     }
 
-    protected function requireLogin()
+    protected function requireLogin(): bool
     {
         if (!$this->isLoggedIn()) {
-            $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'] ?? '/';
-            $this->redirect('/login');
+            $_SESSION['redirect_url'] = $this->request->uri();
+            $this->redirect('/login')->send();
             return false;
         }
         return true;
@@ -76,11 +76,11 @@ abstract class Controller
 
     protected function validateCsrfToken(): bool
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        if ($this->request->method() !== 'POST') {
             return true;
         }
 
-        $token = $_POST['_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        $token = $this->request->getCsrfToken();
 
         // Если есть authService, используем его метод
         if ($this->authService) {
@@ -102,26 +102,19 @@ abstract class Controller
 
     private function handleCsrfError(): void
     {
-        if ($this->isJsonRequest()) {
-            $this->json(['error' => 'Invalid CSRF token'], 403);
+        if ($this->request->isJson() || $this->request->isAjax()) {
+            $this->json(['error' => 'Invalid CSRF token'], 403)->send();
         } else {
             $_SESSION['flash_error'] = 'Недействительный CSRF токен';
-            $this->redirect($_SERVER['HTTP_REFERER'] ?? '/');
+            $this->redirect($this->request->server('HTTP_REFERER', '/'))->send();
         }
     }
 
-    protected function isJsonRequest(): bool
-    {
-        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-        return strpos($accept, 'application/json') !== false ||
-            (isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-                $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest');
-    }
-
-    protected function requireApiAuth()
+    protected function requireApiAuth(): bool
     {
         if (!$this->isLoggedIn()) {
-            return $this->json(['error' => 'Unauthorized'], 401);
+            $this->json(['error' => 'Unauthorized'], 401)->send();
+            return false;
         }
         return true;
     }
@@ -129,5 +122,31 @@ abstract class Controller
     protected function getCurrentUser()
     {
         return $this->authService ? $this->authService->getCurrentUser() : null;
+    }
+
+    protected function validate(array $rules): array
+    {
+        $errors = [];
+
+        foreach ($rules as $field => $rule) {
+            $value = $this->request->input($field);
+
+            if ($rule === 'required' && empty($value)) {
+                $errors[$field] = "Поле {$field} обязательно для заполнения";
+            }
+
+            if ($rule === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                $errors[$field] = "Неверный формат email";
+            }
+
+            if (strpos($rule, 'min:') === 0) {
+                $minLength = (int) substr($rule, 4);
+                if (strlen($value) < $minLength) {
+                    $errors[$field] = "Минимальная длина {$minLength} символов";
+                }
+            }
+        }
+
+        return $errors;
     }
 }

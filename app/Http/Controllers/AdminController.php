@@ -11,12 +11,17 @@ class AdminController extends Controller
             return;
         }
 
+        // Получаем менеджер виджетов
+        $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
+        $widgetsGrid = $widgetManager->renderWidgetsGrid();
+
         $data = [
             'title' => 'Панель администратора',
-            'message' => 'Добро пожаловать в панель управления! Здесь вы можете управлять плагинами, виджетами и настройками системы.'
+            'message' => 'Добро пожаловать в панель управления! Здесь вы можете управлять плагинами, виджетами и настройками системы.',
+            'widgetsGrid' => $widgetsGrid
         ];
 
-        echo $this->view('admin.dashboard', $data);
+        return $this->view('admin.dashboard', $data);
     }
 
     public function saveWidgets()

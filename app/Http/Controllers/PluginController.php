@@ -8,14 +8,13 @@ class PluginController extends Controller
     public function index()
     {
         if (!isset($_SESSION['user_id'])) {
-            $this->redirect('/login');
-            return;
+            return $this->redirect('/login');
         }
 
         $pluginManager = \Plugins\PluginManager::getInstance();
         $plugins = $pluginManager->getPlugins();
 
-        echo $this->view('admin.plugins', [
+        return $this->view('admin.plugins', [
             'title' => 'Управление плагинами',
             'plugins' => $plugins
         ]);

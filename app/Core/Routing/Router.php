@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Core\Routing;
 
+use App\Http\Response;
+
 class Router
 {
     private $routes = [];
@@ -70,16 +72,40 @@ class Router
                 throw new \Exception("Controller class not found: {$controller}");
             }
 
-            // Пытаемся создать контроллер через фабрику
             $controllerInstance = $this->createController($controller);
 
             if (method_exists($controllerInstance, $method)) {
-                return call_user_func_array([$controllerInstance, $method], array_values($parameters));
+                $result = call_user_func_array([$controllerInstance, $method], array_values($parameters));
+
+                // Если контроллер вернул Response, отправляем его
+                if ($result instanceof Response) {
+                    $result->send();
+                    return;
+                }
+
+                // Иначе выводим результат как есть
+                if (is_string($result) || is_numeric($result)) {
+                    echo $result;
+                } elseif (is_array($result) || is_object($result)) {
+                    echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                }
+
+                return;
             } else {
                 throw new \Exception("Method {$method} not found in controller {$controller}");
             }
         } elseif (is_callable($action)) {
-            return call_user_func_array($action, array_values($parameters));
+            $result = call_user_func_array($action, array_values($parameters));
+
+            // Если возвращен Response, отправляем его
+            if ($result instanceof Response) {
+                $result->send();
+                return;
+            }
+
+            // Иначе выводим результат
+            echo $result;
+            return;
         }
 
         throw new \Exception("Invalid route action");
