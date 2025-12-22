@@ -1,3 +1,0 @@
-<?php
-
-// themes/ThemeManager.php
