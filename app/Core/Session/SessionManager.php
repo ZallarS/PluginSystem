@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Core\Session;
 
-class SessionManager
+class SessionManager implements SessionInterface
 {
     private bool $started = false;
     private array $flashMessages = [];
@@ -11,6 +11,12 @@ class SessionManager
     public function start(array $options = []): void
     {
         if ($this->started || session_status() === PHP_SESSION_ACTIVE) {
+            // Если сессия уже запущена, синхронизируем состояние
+            if (session_status() === PHP_SESSION_ACTIVE && !$this->started) {
+                $this->started = true;
+                $this->flashMessages = $_SESSION['_flash'] ?? [];
+                unset($_SESSION['_flash']);
+            }
             return;
         }
 
@@ -21,6 +27,8 @@ class SessionManager
             'cookie_samesite' => 'Lax',
             'use_strict_mode' => '1',
             'use_only_cookies' => '1',
+            'gc_maxlifetime' => 1440,
+            'cookie_lifetime' => 0,
         ];
 
         foreach (array_merge($defaultOptions, $options) as $key => $value) {
@@ -33,12 +41,55 @@ class SessionManager
         // Инициализируем flash сообщения
         $this->flashMessages = $_SESSION['_flash'] ?? [];
         unset($_SESSION['_flash']);
+
+        // Синхронизируем старые ключи сессии с новыми
+        $this->migrateOldSessionKeys();
+    }
+
+    private function migrateOldSessionKeys(): void
+    {
+        // Миграция старых ключей сессии
+        if (isset($_SESSION['user_id'])) {
+            $this->set('auth.user_id', $_SESSION['user_id']);
+        }
+        if (isset($_SESSION['is_admin'])) {
+            $this->set('auth.is_admin', $_SESSION['is_admin']);
+        }
+        if (isset($_SESSION['username'])) {
+            $this->set('auth.username', $_SESSION['username']);
+        }
+        if (isset($_SESSION['csrf_token'])) {
+            $this->set('auth.csrf_token', $_SESSION['csrf_token']);
+        }
     }
 
     public function get(string $key, $default = null)
     {
         $this->ensureStarted();
-        return $_SESSION[$key] ?? $default;
+
+        // Сначала проверяем нашу структуру
+        if (isset($_SESSION[$key])) {
+            return $_SESSION[$key];
+        }
+
+        // Для обратной совместимости проверяем старые ключи
+        return $this->getLegacyKey($key, $default);
+    }
+
+    private function getLegacyKey(string $key, $default = null)
+    {
+        $legacyMap = [
+            'auth.user_id' => 'user_id',
+            'auth.is_admin' => 'is_admin',
+            'auth.username' => 'username',
+            'auth.csrf_token' => 'csrf_token',
+        ];
+
+        if (isset($legacyMap[$key]) && isset($_SESSION[$legacyMap[$key]])) {
+            return $_SESSION[$legacyMap[$key]];
+        }
+
+        return $default;
     }
 
     public function set(string $key, $value): void
@@ -50,13 +101,42 @@ class SessionManager
     public function has(string $key): bool
     {
         $this->ensureStarted();
-        return isset($_SESSION[$key]);
+
+        if (isset($_SESSION[$key])) {
+            return true;
+        }
+
+        // Проверяем старые ключи для обратной совместимости
+        $legacyMap = [
+            'auth.user_id' => 'user_id',
+            'auth.is_admin' => 'is_admin',
+            'auth.username' => 'username',
+            'auth.csrf_token' => 'csrf_token',
+        ];
+
+        if (isset($legacyMap[$key])) {
+            return isset($_SESSION[$legacyMap[$key]]);
+        }
+
+        return false;
     }
 
     public function remove(string $key): void
     {
         $this->ensureStarted();
         unset($_SESSION[$key]);
+
+        // Также удаляем старые ключи
+        $legacyMap = [
+            'auth.user_id' => 'user_id',
+            'auth.is_admin' => 'is_admin',
+            'auth.username' => 'username',
+            'auth.csrf_token' => 'csrf_token',
+        ];
+
+        if (isset($legacyMap[$key])) {
+            unset($_SESSION[$legacyMap[$key]]);
+        }
     }
 
     public function flash(string $key, $value): void
@@ -67,7 +147,14 @@ class SessionManager
 
     public function getFlash(string $key, $default = null)
     {
-        return $this->flashMessages[$key] ?? $default;
+        // Проверяем сначала в памяти
+        if (isset($this->flashMessages[$key])) {
+            return $this->flashMessages[$key];
+        }
+
+        // Затем в сессии (на случай если сессия была перезапущена)
+        $this->ensureStarted();
+        return $_SESSION['_flash'][$key] ?? $default;
     }
 
     public function regenerate(): void
@@ -78,10 +165,46 @@ class SessionManager
 
     public function destroy(): void
     {
-        if ($this->started) {
+        if ($this->started || session_status() === PHP_SESSION_ACTIVE) {
+            // Удаляем все данные сессии
+            $_SESSION = [];
+            $this->flashMessages = [];
+
+            // Удаляем cookie сессии
+            if (ini_get("session.use_cookies")) {
+                $params = session_get_cookie_params();
+                setcookie(
+                    session_name(),
+                    '',
+                    time() - 42000,
+                    $params["path"],
+                    $params["domain"],
+                    $params["secure"],
+                    $params["httponly"]
+                );
+            }
+
             session_destroy();
             $this->started = false;
         }
+    }
+
+    public function all(): array
+    {
+        $this->ensureStarted();
+        return $_SESSION;
+    }
+
+    public function isStarted(): bool
+    {
+        return $this->started;
+    }
+
+    public function clear(): void
+    {
+        $this->ensureStarted();
+        $_SESSION = [];
+        $this->flashMessages = [];
     }
 
     private function ensureStarted(): void
@@ -91,8 +214,16 @@ class SessionManager
         }
     }
 
-    public function isStarted(): bool
+    /**
+     * Очищает старые ключи сессии для миграции
+     */
+    public function clearLegacyKeys(): void
     {
-        return $this->started;
+        $this->ensureStarted();
+
+        $legacyKeys = ['user_id', 'is_admin', 'username', 'csrf_token', 'flash_error', 'flash_message'];
+        foreach ($legacyKeys as $key) {
+            unset($_SESSION[$key]);
+        }
     }
 }

@@ -4,10 +4,21 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Core\Widgets\WidgetManager;
-use App\Core\Session\SessionManager;
+use App\Core\Session\SessionInterface;
 
 class AdminController extends Controller
 {
+    use Concerns\HasSession;
+
+    public function __construct(
+        \App\Core\View\TemplateEngine $template,
+        ?\App\Services\AuthService $authService,
+        \App\Http\Request $request,
+        ?SessionInterface $session = null
+    ) {
+        parent::__construct($template, $authService, $request, $session);
+    }
+
     public function dashboard()
     {
         // Проверка аутентификации теперь в middleware

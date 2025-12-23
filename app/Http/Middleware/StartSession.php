@@ -5,7 +5,7 @@ namespace App\Http\Middleware;
 
 use App\Http\Request;
 use App\Http\Response;
-use App\Core\Session\SessionManager;
+use App\Core\Session\SessionInterface;
 
 class StartSession extends Middleware
 {
@@ -17,8 +17,8 @@ class StartSession extends Middleware
             return $next($request);
         }
 
-        /** @var SessionManager $session */
-        $session = app(SessionManager::class);
+        /** @var SessionInterface $session */
+        $session = app(SessionInterface::class);
         $session->start();
 
         // Инициализируем user_widgets если не существует

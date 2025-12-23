@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Core\View\TemplateEngine;
 use App\Services\AuthService;
 use App\Http\Request;
+use App\Core\Session\SessionInterface;
 
 class ControllerFactory
 {
@@ -33,8 +34,12 @@ class ControllerFactory
             ? $this->container->get(Request::class)
             : Request::createFromGlobals();
 
-        // Создаем контроллер
-        return new $controllerClass($template, $authService, $request);
+        $session = $this->container->has(SessionInterface::class)
+            ? $this->container->get(SessionInterface::class)
+            : $this->getSessionFallback();
+
+        // Создаем контроллер с 4 параметрами
+        return new $controllerClass($template, $authService, $request, $session);
     }
 
     private function getAuthServiceFallback(): ?AuthService
@@ -47,5 +52,10 @@ class ControllerFactory
             error_log("ControllerFactory: Failed to create AuthService fallback: " . $e->getMessage());
             return null;
         }
+    }
+
+    private function getSessionFallback(): SessionInterface
+    {
+        return new \App\Core\Session\SessionManager();
     }
 }

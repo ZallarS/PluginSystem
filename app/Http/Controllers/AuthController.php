@@ -6,12 +6,37 @@ namespace App\Http\Controllers;
 use App\Services\AuthService;
 use App\Http\Request;
 use App\Http\Response;
+use App\Core\Session\SessionInterface;
 
 class AuthController extends Controller
 {
+    use Concerns\HasSession;
+
+    public function __construct(
+        \App\Core\View\TemplateEngine $template,
+        ?AuthService $authService,
+        Request $request,
+        ?SessionInterface $session = null
+    ) {
+        parent::__construct($template, $authService, $request, $session);
+    }
+
     public function login()
     {
-        // Если уже авторизован - редирект (используем authService)
+        error_log("=== AUTH DEBUG ===");
+        error_log("Session status: " . session_status());
+        error_log("SESSION array: " . print_r($_SESSION, true));
+
+        if ($this->session) {
+            error_log("SessionManager isStarted: " . ($this->session->isStarted() ? 'true' : 'false'));
+            error_log("SessionManager has user_id: " . ($this->session->has('user_id') ? 'true' : 'false'));
+        }
+
+        if ($this->authService) {
+            error_log("AuthService isLoggedIn: " . ($this->authService->isLoggedIn() ? 'true' : 'false'));
+        }
+        error_log("=== END DEBUG ===");
+
         if ($this->authService && $this->authService->isLoggedIn()) {
             return $this->redirect('/admin');
         }
@@ -20,11 +45,9 @@ class AuthController extends Controller
         $errors = [];
 
         if ($this->request->method() === 'POST') {
-            // Проверка CSRF теперь в middleware
             $username = trim($this->request->post('username', ''));
             $password = $this->request->post('password', '');
 
-            // Валидация
             $validationErrors = $this->validate([
                 'username' => 'required',
                 'password' => 'required'
@@ -32,15 +55,7 @@ class AuthController extends Controller
 
             if (empty($validationErrors) && $this->authService) {
                 if ($this->authService->attemptLogin($username, $password)) {
-                    // Используем session flash через SessionManager
-                    try {
-                        $session = app(\App\Core\Session\SessionManager::class);
-                        $session->flash('flash_message', 'Вы успешно вошли в систему');
-                    } catch (\Exception $e) {
-                        // Fallback
-                        $_SESSION['flash_message'] = 'Вы успешно вошли в систему';
-                    }
-
+                    $this->flashMessage('Вы успешно вошли в систему', 'success');
                     return $this->redirect('/admin');
                 } else {
                     $error = 'Неверные учетные данные';
@@ -51,26 +66,16 @@ class AuthController extends Controller
             }
         }
 
-        // Генерируем CSRF токен если его нет
-        try {
-            $csrfToken = $this->authService ? $this->authService->getCsrfToken() : '';
-        } catch (\Exception $e) {
-            // Fallback
-            if (!isset($_SESSION['csrf_token'])) {
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            }
-            $csrfToken = $_SESSION['csrf_token'] ?? '';
-        }
-
         try {
             return $this->view('auth.login', [
                 'title' => 'Вход в панель администратора',
                 'error' => $error,
                 'errors' => $errors,
-                'csrf_token' => $csrfToken
+                'csrf_token' => $this->authService ? $this->authService->getCsrfToken() : ''
             ]);
         } catch (\Exception $e) {
-            return $this->showSimpleLoginForm($error, $errors, $csrfToken);
+            return $this->showSimpleLoginForm($error, $errors,
+                $this->authService ? $this->authService->getCsrfToken() : '');
         }
     }
 
@@ -140,18 +145,10 @@ class AuthController extends Controller
         if ($this->authService) {
             $this->authService->logout();
         } else {
-            // Fallback
-            session_destroy();
+            $this->session()->destroy();
         }
 
-        // Используем session flash
-        try {
-            $session = app(\App\Core\Session\SessionManager::class);
-            $session->flash('flash_message', 'Вы успешно вышли из системы');
-        } catch (\Exception $e) {
-            $_SESSION['flash_message'] = 'Вы успешно вышли из системы';
-        }
-
+        $this->flashMessage('Вы успешно вышли из системы', 'success');
         return $this->redirect('/');
     }
 
@@ -193,9 +190,9 @@ class AuthController extends Controller
             // Используем session flash
             try {
                 $session = app(\App\Core\Session\SessionManager::class);
-                $session->flash('flash_message', 'Быстрый вход выполнен');
+                $this->flashMessage('Быстрый вход выполнен', 'success');
             } catch (\Exception $e) {
-                $_SESSION['flash_message'] = 'Быстрый вход выполнен';
+                $this->flashMessage('Ошибка быстрого входа', 'error');
             }
 
             return $this->redirect('/admin');
@@ -203,9 +200,9 @@ class AuthController extends Controller
             // Используем session flash для ошибки
             try {
                 $session = app(\App\Core\Session\SessionManager::class);
-                $session->flash('flash_error', 'Ошибка быстрого входа');
+                $this->flashMessage('Ошибка быстрого входа', 'error');
             } catch (\Exception $e) {
-                $_SESSION['flash_error'] = 'Ошибка быстрого входа';
+                $this->flashMessage('Ошибка быстрого входа', 'error');
             }
 
             return $this->redirect('/');

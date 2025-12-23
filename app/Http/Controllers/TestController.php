@@ -3,8 +3,21 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Core\Session\SessionInterface;
+
 class TestController extends Controller
 {
+    use Concerns\HasSession;
+
+    public function __construct(
+        \App\Core\View\TemplateEngine $template,
+        ?\App\Services\AuthService $authService,
+        \App\Http\Request $request,
+        ?SessionInterface $session = null
+    ) {
+        parent::__construct($template, $authService, $request, $session);
+    }
+
     public function index()
     {
         echo "<h1>✅ System Test - ВСЕ РАБОТАЕТ!</h1>";

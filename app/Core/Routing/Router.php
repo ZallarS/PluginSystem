@@ -228,34 +228,49 @@ class Router
 
     private function createController(string $controllerClass)
     {
-        // Простой способ создания контроллера без фабрики
         $app = \App\Core\Application::getInstance();
 
         if (!$app) {
+            // Fallback с новым конструктором (4 параметра)
+            return new $controllerClass(
+                new \App\Core\View\TemplateEngine(),
+                $this->createAuthServiceFallback(),
+                \App\Http\Request::createFromGlobals(),
+                new \App\Core\Session\SessionManager()
+            );
+        }
+
+        $container = $app->getContainer();
+
+        // Пытаемся создать через ControllerFactory
+        if ($container && $container->has(\App\Core\ControllerFactory::class)) {
+            try {
+                $factory = $container->get(\App\Core\ControllerFactory::class);
+                return $factory->create($controllerClass);
+            } catch (\Exception $e) {
+                error_log("Router: Failed to create controller via factory: " . $e->getMessage());
+                // Продолжаем с fallback
+            }
+        }
+
+        // Fallback: создаем вручную с новым конструктором
+        try {
+            return new $controllerClass(
+                new \App\Core\View\TemplateEngine(),
+                $this->createAuthServiceFallback(),
+                \App\Http\Request::createFromGlobals(),
+                new \App\Core\Session\SessionManager()
+            );
+        } catch (\ArgumentCountError $e) {
+            // Если контроллер ожидает только 3 параметра (старая версия)
+            error_log("Router: Controller expects 3 parameters, using fallback: " . $e->getMessage());
+
             return new $controllerClass(
                 new \App\Core\View\TemplateEngine(),
                 $this->createAuthServiceFallback(),
                 \App\Http\Request::createFromGlobals()
             );
         }
-
-        $container = $app->getContainer();
-
-        // Пытаемся создать через контейнер
-        if ($container && $container->has($controllerClass)) {
-            try {
-                return $container->get($controllerClass);
-            } catch (\Exception $e) {
-                error_log("Router: Failed to create controller via container: " . $e->getMessage());
-            }
-        }
-
-        // Fallback: создаем вручную
-        return new $controllerClass(
-            new \App\Core\View\TemplateEngine(),
-            $this->createAuthServiceFallback(),
-            \App\Http\Request::createFromGlobals()
-        );
     }
 
     private function show404()

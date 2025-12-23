@@ -5,6 +5,15 @@ namespace App\Http\Controllers;
 
 class HomeController extends Controller
 {
+    public function __construct(
+        \App\Core\View\TemplateEngine $template,
+        ?\App\Services\AuthService $authService,
+        \App\Http\Request $request,
+        ?\App\Core\Session\SessionInterface $session = null
+    ) {
+        parent::__construct($template, $authService, $request, $session);
+    }
+
     public function index()
     {
         $data = [

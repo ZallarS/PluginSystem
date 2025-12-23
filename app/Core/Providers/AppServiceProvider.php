@@ -38,6 +38,7 @@ class AppServiceProvider
         $this->container->singleton(SessionManager::class, function() {
             return new SessionManager();
         });
+        $this->container->singleton(SessionInterface::class, SessionManager::class);
 
         // TemplateEngine как синглтон
         $this->container->singleton(TemplateEngine::class, function() {

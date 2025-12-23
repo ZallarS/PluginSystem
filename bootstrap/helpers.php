@@ -176,16 +176,53 @@ if (!function_exists('old')) {
 if (!function_exists('session')) {
     function session($key = null, $value = null)
     {
-        /** @var \App\Core\Session\SessionManager $session */
-        $session = app(\App\Core\Session\SessionManager::class);
+        /** @var \App\Core\Session\SessionInterface $session */
+        $session = app(\App\Core\Session\SessionInterface::class);
 
         if (is_null($key)) {
-            // Возвращаем все данные сессии (только для отладки)
-            return $_SESSION;
+            return $session->all();
         }
 
         if (is_null($value)) {
+            // Проверяем старые ключи для обратной совместимости
+            $legacyMap = [
+                'user_id' => 'auth.user_id',
+                'is_admin' => 'auth.is_admin',
+                'username' => 'auth.username',
+                'csrf_token' => 'auth.csrf_token',
+                'flash_error' => '_flash.flash_error',
+                'flash_message' => '_flash.flash_message',
+            ];
+
+            if (isset($legacyMap[$key])) {
+                $newKey = $legacyMap[$key];
+                if (strpos($newKey, '_flash.') === 0) {
+                    return $session->getFlash(substr($newKey, 7));
+                }
+                return $session->get($newKey);
+            }
+
             return $session->get($key);
+        }
+
+        // Для обратной совместимости сохраняем в новые ключи
+        $legacyMap = [
+            'user_id' => 'auth.user_id',
+            'is_admin' => 'auth.is_admin',
+            'username' => 'auth.username',
+            'csrf_token' => 'auth.csrf_token',
+            'flash_error' => '_flash.flash_error',
+            'flash_message' => '_flash.flash_message',
+        ];
+
+        if (isset($legacyMap[$key])) {
+            $newKey = $legacyMap[$key];
+            if (strpos($newKey, '_flash.') === 0) {
+                $session->flash(substr($newKey, 7), $value);
+                return;
+            }
+            $session->set($newKey, $value);
+            return;
         }
 
         $session->set($key, $value);
@@ -195,8 +232,8 @@ if (!function_exists('session')) {
 if (!function_exists('flash')) {
     function flash($key, $value = null)
     {
-        /** @var \App\Core\Session\SessionManager $session */
-        $session = app(\App\Core\Session\SessionManager::class);
+        /** @var \App\Core\Session\SessionInterface $session */
+        $session = app(\App\Core\Session\SessionInterface::class);
 
         if (is_null($value)) {
             return $session->getFlash($key);

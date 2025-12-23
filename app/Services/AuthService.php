@@ -5,7 +5,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Repositories\UserRepository;
-use App\Core\Session\SessionManager;
+use App\Core\Session\SessionInterface;
 
 class AuthService
 {
@@ -15,9 +15,9 @@ class AuthService
     private const SESSION_CSRF_KEY = 'auth.csrf_token';
 
     private UserRepository $userRepository;
-    private SessionManager $session;
+    private SessionInterface $session;
 
-    public function __construct(UserRepository $userRepository, SessionManager $session)
+    public function __construct(UserRepository $userRepository, SessionInterface $session)
     {
         $this->userRepository = $userRepository;
         $this->session = $session;
@@ -29,6 +29,12 @@ class AuthService
 
         if ($user && $user->verifyPassword($password)) {
             $this->login($user);
+
+            // Очищаем старые ключи сессии после успешного входа
+            if (method_exists($this->session, 'clearLegacyKeys')) {
+                $this->session->clearLegacyKeys();
+            }
+
             return true;
         }
 
@@ -37,6 +43,7 @@ class AuthService
 
     public function login(User $user): void
     {
+        // Используем новые ключи сессии
         $this->session->set(self::SESSION_USER_KEY, $user->getId());
         $this->session->set(self::SESSION_USERNAME_KEY, $user->getUsername());
         $this->session->set(self::SESSION_IS_ADMIN_KEY, $user->isAdmin());
@@ -55,6 +62,7 @@ class AuthService
 
     public function isLoggedIn(): bool
     {
+        // Используем новые ключи
         return $this->session->has(self::SESSION_USER_KEY) &&
             $this->session->has(self::SESSION_IS_ADMIN_KEY) &&
             $this->session->get(self::SESSION_IS_ADMIN_KEY) === true;
@@ -93,5 +101,4 @@ class AuthService
         $this->session->set(self::SESSION_CSRF_KEY, $token);
         return $token;
     }
-
 }

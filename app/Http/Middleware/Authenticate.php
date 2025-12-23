@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 
 use App\Http\Request;
 use App\Http\Response;
+use App\Core\Session\SessionInterface;
 
 class Authenticate extends Middleware
 {
@@ -16,7 +17,6 @@ class Authenticate extends Middleware
 
     public function handle(Request $request, callable $next): Response
     {
-        // Пропускаем проверку для исключенных маршрутов
         if ($this->shouldSkip($request)) {
             return $next($request);
         }
@@ -28,30 +28,33 @@ class Authenticate extends Middleware
         return $next($request);
     }
 
-    /**
-     * Проверяет аутентификацию пользователя
-     */
     protected function isAuthenticated(Request $request): bool
     {
-        return isset($_SESSION['user_id']) &&
-            isset($_SESSION['is_admin']) &&
-            $_SESSION['is_admin'] === true;
+        /** @var SessionInterface $session */
+        $session = app(SessionInterface::class);
+
+        // Используем новые ключи через AuthService или напрямую
+        try {
+            $authService = app(\App\Services\AuthService::class);
+            return $authService->isLoggedIn();
+        } catch (\Exception $e) {
+            // Fallback: проверяем напрямую
+            return $session->has('auth.user_id') &&
+                $session->has('auth.is_admin') &&
+                $session->get('auth.is_admin') === true;
+        }
     }
 
-    /**
-     * Обрабатывает неаутентифицированный запрос
-     */
     protected function handleUnauthenticated(Request $request): Response
     {
-        // Для AJAX/JSON запросов
         if ($request->isJson() || $request->isAjax()) {
             return Response::json(['error' => 'Unauthorized'], 401);
         }
 
-        // Сохраняем текущий URL для редиректа после входа
-        $_SESSION['redirect_url'] = $request->uri();
+        /** @var SessionInterface $session */
+        $session = app(SessionInterface::class);
+        $session->set('redirect_url', $request->uri());
 
-        // Для веб-запросов - редирект на страницу входа
         return Response::redirect('/login');
     }
 }

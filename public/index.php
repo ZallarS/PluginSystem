@@ -5,6 +5,20 @@ require_once dirname(__DIR__) . '/bootstrap/environment.php';
 // Загружаем хелперы ДО настройки отображения ошибок
 require_once dirname(__DIR__) . '/bootstrap/helpers.php';
 
+// Инициализируем сессию и очищаем старые ключи
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Очищаем старые ключи сессии для миграции
+if (isset($_SESSION['_migrated']) && $_SESSION['_migrated'] !== '1.0') {
+    $oldKeys = ['user_id', 'is_admin', 'username', 'csrf_token', 'flash_error', 'flash_message'];
+    foreach ($oldKeys as $key) {
+        unset($_SESSION[$key]);
+    }
+    $_SESSION['_migrated'] = '1.0';
+}
+
 // Получаем значения окружения
 $appEnv = env('APP_ENV', 'production');
 $appDebug = env('APP_DEBUG', 'false') === 'true';
