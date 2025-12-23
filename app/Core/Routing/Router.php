@@ -14,8 +14,8 @@ class Router
         'web' => [
             \App\Http\Middleware\StartSession::class,
             \App\Http\Middleware\HandleJsonRequests::class,
-            \App\Http\Middleware\VerifyCsrfToken::class,
             \App\Http\Middleware\Authenticate::class,
+            \App\Http\Middleware\VerifyCsrfToken::class,
         ],
         'api' => [
             \App\Http\Middleware\StartSession::class,
@@ -26,18 +26,44 @@ class Router
         ]
     ];
 
-    private $routes = [];
-    private $currentRoute;
+    private array $routes = [];
+    private ?Route $currentRoute = null;
     private array $routeMiddleware = [];
+    private array $groupAttributes = [];
 
     public function get($uri, $action)
     {
         $this->addRoute('GET', $uri, $action);
     }
 
+    public function post($uri, $action)
+    {
+        $this->addRoute('POST', $uri, $action);
+    }
+
+    public function put($uri, $action)
+    {
+        $this->addRoute('PUT', $uri, $action);
+    }
+
+    public function patch($uri, $action)
+    {
+        $this->addRoute('PATCH', $uri, $action);
+    }
+
+    public function delete($uri, $action)
+    {
+        $this->addRoute('DELETE', $uri, $action);
+    }
+
+    public function any($uri, $action)
+    {
+        $this->addRoute(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], $uri, $action);
+    }
+
     public function group(array $attributes, callable $callback): void
     {
-        $previousGroupAttributes = $this->groupAttributes ?? [];
+        $previousGroupAttributes = $this->groupAttributes;
 
         // Объединяем атрибуты группы
         $this->groupAttributes = array_merge($previousGroupAttributes, [
@@ -52,19 +78,19 @@ class Router
         $this->groupAttributes = $previousGroupAttributes;
     }
 
-    public function post($uri, $action)
-    {
-        $this->addRoute('POST', $uri, $action);
-    }
-
     public function middleware(array|string $middleware): self
     {
         $this->routeMiddleware = is_array($middleware) ? $middleware : [$middleware];
         return $this;
     }
 
-    public function addRoute($method, $uri, $action)
+    private function addRoute($method, $uri, $action)
     {
+        // Применяем префикс группы
+        if (!empty($this->groupAttributes['prefix'])) {
+            $uri = rtrim($this->groupAttributes['prefix'], '/') . '/' . ltrim($uri, '/');
+        }
+
         if (is_array($method)) {
             foreach ($method as $m) {
                 $this->routes[] = new Route($m, $uri, $action);
@@ -141,7 +167,13 @@ class Router
         }
         // Обработка строки 'Controller@method'
         elseif (is_string($action)) {
-            list($controller, $method) = explode('@', $action);
+            if (strpos($action, '@') !== false) {
+                list($controller, $method) = explode('@', $action);
+            } else {
+                // Если только контроллер без метода
+                $controller = $action;
+                $method = 'index';
+            }
         }
         // Обработка callable
         elseif (is_callable($action)) {
@@ -150,7 +182,7 @@ class Router
 
         // Если не удалось определить контроллер и метод
         if (!$controller || !$method) {
-            throw new \Exception("Invalid route action");
+            throw new \Exception("Invalid route action: " . print_r($action, true));
         }
 
         if (!class_exists($controller)) {
@@ -172,12 +204,14 @@ class Router
 
         // Добавляем middleware из группы
         if (!empty($this->groupAttributes['middleware'])) {
-            $middleware = array_merge($middleware, (array)$this->groupAttributes['middleware']);
-        }
-
-        // Добавляем middleware маршрута
-        if (!empty($this->routeMiddleware)) {
-            $middleware = array_merge($middleware, $this->routeMiddleware);
+            $groupMiddleware = (array)$this->groupAttributes['middleware'];
+            foreach ($groupMiddleware as $mw) {
+                if (isset($this->middlewareGroups[$mw])) {
+                    $middleware = array_merge($middleware, $this->middlewareGroups[$mw]);
+                } else {
+                    $middleware[] = $mw;
+                }
+            }
         }
 
         // Преобразуем имена middleware в классы
@@ -185,7 +219,6 @@ class Router
             if (isset($this->middlewareGroups[$name])) {
                 return $this->middlewareGroups[$name];
             }
-
             return $name;
         }, $middleware);
     }
@@ -222,7 +255,7 @@ class Router
     {
         http_response_code(404);
 
-        $errorPage = __DIR__ . '/../../../resources/views/errors/404.php';
+        $errorPage = dirname(__DIR__, 3) . '/resources/views/errors/404.php';
         if (file_exists($errorPage)) {
             require $errorPage;
         } else {
@@ -231,13 +264,18 @@ class Router
         exit;
     }
 
-    public function getCurrentRoute()
+    public function getCurrentRoute(): ?Route
     {
         return $this->currentRoute;
     }
 
-    public function getRoutes()
+    public function getRoutes(): array
     {
         return $this->routes;
+    }
+
+    public function getMiddlewareGroups(): array
+    {
+        return $this->middlewareGroups;
     }
 }

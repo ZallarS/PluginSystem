@@ -142,13 +142,13 @@ class Application
                 return new \App\Services\CacheService($cachePath, $ttl);
             });
 
-            // Регистрируем Middleware
-            $this->container->singleton(\App\Http\Middleware\StartSession::class, function() {
-                return new \App\Http\Middleware\StartSession();
+            // Регистрируем Middleware с правильными зависимостями
+            $this->container->singleton(\App\Http\Middleware\Authenticate::class, function() {
+                return new \App\Http\Middleware\Authenticate();
             });
 
-            $this->container->singleton(\App\Http\Middleware\Authenticate::class, function($container) {
-                return new \App\Http\Middleware\Authenticate();
+            $this->container->singleton(\App\Http\Middleware\StartSession::class, function() {
+                return new \App\Http\Middleware\StartSession();
             });
 
             $this->container->singleton(\App\Http\Middleware\VerifyCsrfToken::class, function() {

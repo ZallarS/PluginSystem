@@ -3,45 +3,55 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-class Authenticate
-{
-    /**
-     * Проверяет аутентификацию пользователя
-     */
-    public function handle($request, \Closure $next)
-    {
-        if (!$this->isAuthenticated()) {
-            if ($this->isApiRequest($request)) {
-                http_response_code(401);
-                header('Content-Type: application/json');
-                echo json_encode(['error' => 'Unauthorized']);
-                exit;
-            }
+use App\Http\Request;
+use App\Http\Response;
 
-            $_SESSION['redirect_url'] = $request['uri'] ?? '/';
-            header('Location: /login');
-            exit;
+class Authenticate extends Middleware
+{
+    protected array $except = [
+        '/login',
+        '/quick-login',
+        '/api/status'
+    ];
+
+    public function handle(Request $request, callable $next): Response
+    {
+        // Пропускаем проверку для исключенных маршрутов
+        if ($this->shouldSkip($request)) {
+            return $next($request);
+        }
+
+        if (!$this->isAuthenticated($request)) {
+            return $this->handleUnauthenticated($request);
         }
 
         return $next($request);
     }
 
     /**
-     * Проверяет, аутентифицирован ли пользователь
+     * Проверяет аутентификацию пользователя
      */
-    protected function isAuthenticated()
+    protected function isAuthenticated(Request $request): bool
     {
-        return isset($_SESSION['user_id']) && isset($_SESSION['is_admin']) && $_SESSION['is_admin'];
+        return isset($_SESSION['user_id']) &&
+            isset($_SESSION['is_admin']) &&
+            $_SESSION['is_admin'] === true;
     }
 
     /**
-     * Проверяет, является ли запрос API запросом
+     * Обрабатывает неаутентифицированный запрос
      */
-    protected function isApiRequest($request)
+    protected function handleUnauthenticated(Request $request): Response
     {
-        $accept = $request['headers']['Accept'] ?? '';
-        return strpos($accept, 'application/json') !== false ||
-            (isset($request['headers']['X-Requested-With']) &&
-                $request['headers']['X-Requested-With'] === 'XMLHttpRequest');
+        // Для AJAX/JSON запросов
+        if ($request->isJson() || $request->isAjax()) {
+            return Response::json(['error' => 'Unauthorized'], 401);
+        }
+
+        // Сохраняем текущий URL для редиректа после входа
+        $_SESSION['redirect_url'] = $request->uri();
+
+        // Для веб-запросов - редирект на страницу входа
+        return Response::redirect('/login');
     }
 }
