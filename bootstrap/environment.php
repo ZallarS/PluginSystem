@@ -40,3 +40,16 @@ $envPath = dirname(__DIR__) . '/.env';
 if (file_exists($envPath)) {
     loadEnvironmentVariables($envPath);
 }
+
+// Определяем константы только если они еще не определены
+if (!defined('APP_ENV')) {
+    define('APP_ENV', $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'production');
+}
+
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', ($_ENV['APP_DEBUG'] ?? $_SERVER['APP_DEBUG'] ?? 'false') === 'true');
+}
+
+if (!defined('APP_URL')) {
+    define('APP_URL', $_ENV['APP_URL'] ?? 'http://localhost');
+}

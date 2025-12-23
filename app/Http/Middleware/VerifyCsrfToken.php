@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 
 use App\Http\Request;
 use App\Http\Response;
+use App\Services\AuthService;
 
 class VerifyCsrfToken extends Middleware
 {
@@ -23,7 +24,10 @@ class VerifyCsrfToken extends Middleware
             return $next($request);
         }
 
-        if (!$this->tokensMatch($request)) {
+        /** @var AuthService $authService */
+        $authService = app(AuthService::class);
+
+        if (!$authService->validateCsrfToken($this->getTokenFromRequest($request))) {
             return $this->handleTokenMismatch($request);
         }
 

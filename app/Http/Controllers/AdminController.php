@@ -3,19 +3,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Core\Widgets\WidgetManager;
+use App\Core\Session\SessionManager;
+
 class AdminController extends Controller
 {
-    private ?WidgetRepository $widgetRepository = null;
-
     public function dashboard()
     {
-        // Проверка аутентификации теперь в middleware - удаляем вызов requireLogin()
-        $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
+        // Проверка аутентификации теперь в middleware
+        $widgetManager = WidgetManager::getInstance();
         $widgetsGrid = $widgetManager->renderWidgetsGrid();
 
         $data = [
             'title' => 'Панель администратора',
-            'message' => 'Добро пожаловать в панель управления! Здесь вы можете управлять плагинами, виджетами и настройками системы.',
+            'message' => 'Добро пожаловать в панель управления!',
             'widgetsGrid' => $widgetsGrid
         ];
 
@@ -24,60 +25,67 @@ class AdminController extends Controller
 
     public function saveWidgets()
     {
-        // Проверка аутентификации и CSRF теперь в middleware - удаляем вызовы requireApiAuth() и validateCsrfToken()
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $widgets = json_decode($_POST['widgets'] ?? '{}', true);
-
-            // Базовая валидация
-            if (!is_array($widgets)) {
-                return $this->json(['error' => 'Invalid widgets data'], 400);
-            }
-
-            $_SESSION['user_widgets'] = $widgets;
-
-            return $this->json(['success' => true, 'message' => 'Настройки виджетов сохранены']);
+        // Проверка аутентификации и CSRF теперь в middleware
+        if ($this->request->method() !== 'POST') {
+            return $this->json(['error' => 'Invalid request'], 400);
         }
 
-        return $this->json(['error' => 'Invalid request'], 400);
+        $widgets = json_decode($this->request->post('widgets', '{}'), true);
+
+        if (!is_array($widgets)) {
+            return $this->json(['error' => 'Invalid widgets data'], 400);
+        }
+
+        // Используем SessionManager для сохранения виджетов
+        try {
+            $session = app(SessionManager::class);
+            $session->set('user_widgets', $widgets);
+        } catch (\Exception $e) {
+            // Fallback
+            $_SESSION['user_widgets'] = $widgets;
+        }
+
+        return $this->json(['success' => true, 'message' => 'Настройки виджетов сохранены']);
     }
 
     public function toggleWidget()
     {
-        // Проверка аутентификации и CSRF теперь в middleware - удаляем вызовы requireApiAuth() и validateCsrfToken()
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $widgetId = $_POST['widget_id'] ?? '';
-            $action = $_POST['action'] ?? '';
-
-            if (!$widgetId) {
-                return $this->json(['error' => 'Widget ID is required'], 400);
-            }
-
-            $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
-
-            if ($action === 'hide_widget') {
-                $widgetManager->toggleWidget($widgetId, false);
-                return $this->json(['success' => true, 'message' => 'Виджет скрыт']);
-            } elseif ($action === 'show_widget') {
-                $widgetManager->toggleWidget($widgetId, true);
-                $html = $widgetManager->renderWidget($widgetId);
-
-                return $this->json([
-                    'success' => true,
-                    'message' => 'Виджет восстановлен',
-                    'html' => $html
-                ]);
-            }
-
-            return $this->json(['error' => 'Invalid action'], 400);
+        // Проверка аутентификации и CSRF теперь в middleware
+        if ($this->request->method() !== 'POST') {
+            return $this->json(['error' => 'Invalid request'], 400);
         }
 
-        return $this->json(['error' => 'Invalid request'], 400);
+        $widgetId = $this->request->post('widget_id', '');
+        $action = $this->request->post('action', '');
+
+        if (!$widgetId) {
+            return $this->json(['error' => 'Widget ID is required'], 400);
+        }
+
+        $widgetManager = WidgetManager::getInstance();
+
+        if ($action === 'hide_widget') {
+            $widgetManager->hideWidget($widgetId);
+            return $this->json(['success' => true, 'message' => 'Виджет скрыт']);
+        } elseif ($action === 'show_widget') {
+            $widgetManager->showWidget($widgetId);
+            $html = $widgetManager->renderWidget($widgetId);
+
+            return $this->json([
+                'success' => true,
+                'message' => 'Виджет восстановлен',
+                'html' => $html
+            ]);
+        }
+
+        return $this->json(['error' => 'Invalid action'], 400);
     }
 
     public function getHiddenWidgets()
     {
         try {
-            $hiddenWidgets = $this->getWidgetRepository()->getHidden();
+            $widgetManager = WidgetManager::getInstance();
+            $hiddenWidgets = $widgetManager->getHiddenWidgets();
 
             return $this->json([
                 'success' => true,
@@ -91,7 +99,8 @@ class AdminController extends Controller
 
     public function getWidgetInfo($widgetId)
     {
-        $widget = $this->getWidgetRepository()->getWidgetInfo($widgetId);
+        $widgetManager = WidgetManager::getInstance();
+        $widget = $widgetManager->getWidget($widgetId);
 
         if ($widget) {
             return $this->json([
@@ -105,8 +114,8 @@ class AdminController extends Controller
 
     public function getWidgetHtml($widgetId)
     {
-        // Проверка аутентификации теперь в middleware - удаляем вызов requireApiAuth()
-        $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
+        // Проверка аутентификации теперь в middleware
+        $widgetManager = WidgetManager::getInstance();
         $widget = $widgetManager->getWidget($widgetId);
 
         if (!$widget) {

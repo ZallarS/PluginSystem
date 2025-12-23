@@ -157,6 +157,8 @@ class Router
 
     private function runAction($action, array $parameters)
     {
+        error_log("Trying to load controller: " . print_r($action, true));
+
         $controller = null;
         $method = null;
 
@@ -188,6 +190,7 @@ class Router
         if (!class_exists($controller)) {
             throw new \Exception("Controller class not found: {$controller}");
         }
+
 
         $controllerInstance = $this->createController($controller);
 
@@ -225,30 +228,34 @@ class Router
 
     private function createController(string $controllerClass)
     {
-        // Получаем Application
+        // Простой способ создания контроллера без фабрики
         $app = \App\Core\Application::getInstance();
 
         if (!$app) {
-            return new $controllerClass();
+            return new $controllerClass(
+                new \App\Core\View\TemplateEngine(),
+                $this->createAuthServiceFallback(),
+                \App\Http\Request::createFromGlobals()
+            );
         }
 
         $container = $app->getContainer();
 
-        // Если есть фабрика в контейнере, используем ее
-        if ($container && $container->has(\App\Core\ControllerFactory::class)) {
+        // Пытаемся создать через контейнер
+        if ($container && $container->has($controllerClass)) {
             try {
-                $factory = $container->get(\App\Core\ControllerFactory::class);
-                return $factory->create($controllerClass);
+                return $container->get($controllerClass);
             } catch (\Exception $e) {
-                // В случае ошибки, создаем контроллер напрямую
-                if (env('APP_DEBUG', false)) {
-                    error_log("Router: Error creating controller via factory: " . $e->getMessage());
-                }
+                error_log("Router: Failed to create controller via container: " . $e->getMessage());
             }
         }
 
-        // Fallback: создаем контроллер напрямую
-        return new $controllerClass();
+        // Fallback: создаем вручную
+        return new $controllerClass(
+            new \App\Core\View\TemplateEngine(),
+            $this->createAuthServiceFallback(),
+            \App\Http\Request::createFromGlobals()
+        );
     }
 
     private function show404()
@@ -262,6 +269,18 @@ class Router
             echo "404 - Page Not Found";
         }
         exit;
+    }
+
+    private function createAuthServiceFallback()
+    {
+        try {
+            $userRepository = new \App\Repositories\UserRepository();
+            $sessionManager = new \App\Core\Session\SessionManager();
+            return new \App\Services\AuthService($userRepository, $sessionManager);
+        } catch (\Exception $e) {
+            error_log("Router: Failed to create AuthService: " . $e->getMessage());
+            return null;
+        }
     }
 
     public function getCurrentRoute(): ?Route

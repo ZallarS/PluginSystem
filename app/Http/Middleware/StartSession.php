@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 
 use App\Http\Request;
 use App\Http\Response;
+use App\Core\Session\SessionManager;
 
 class StartSession extends Middleware
 {
@@ -16,38 +17,13 @@ class StartSession extends Middleware
             return $next($request);
         }
 
-        if (session_status() === PHP_SESSION_NONE) {
-            // Безопасные настройки сессии
-            ini_set('session.cookie_httponly', '1');
-            ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? '1' : '0');
-            ini_set('session.cookie_samesite', 'Lax');
+        /** @var SessionManager $session */
+        $session = app(SessionManager::class);
+        $session->start();
 
-            session_start();
-
-            // Флаг, что сессия инициализирована middleware
-            define('SESSION_STARTED_BY_MIDDLEWARE', true);
-
-            // Инициализируем CSRF токен если его нет
-            if (!isset($_SESSION['csrf_token'])) {
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            }
-
-            // Инициализируем user_widgets если не существует
-            if (!isset($_SESSION['user_widgets'])) {
-                $_SESSION['user_widgets'] = [];
-            }
-
-            // Инициализируем счетчик запросов для регенерации сессии
-            if (!isset($_SESSION['request_count'])) {
-                $_SESSION['request_count'] = 0;
-            }
-
-            // Регенерируем ID сессии каждые 100 запросов
-            $_SESSION['request_count']++;
-            if ($_SESSION['request_count'] > 100) {
-                session_regenerate_id(true);
-                $_SESSION['request_count'] = 0;
-            }
+        // Инициализируем user_widgets если не существует
+        if (!$session->has('user_widgets')) {
+            $session->set('user_widgets', []);
         }
 
         return $next($request);

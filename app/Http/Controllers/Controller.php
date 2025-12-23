@@ -11,17 +11,17 @@ use App\Http\Response;
 abstract class Controller
 {
     protected TemplateEngine $template;
-    protected ?AuthService $authService = null;
+    protected AuthService $authService;
     protected Request $request;
 
     public function __construct(
-        TemplateEngine $template = null,
-        AuthService $authService = null,
-        Request $request = null
+        TemplateEngine $template,
+        AuthService $authService,
+        Request $request
     ) {
-        $this->template = $template ?? new TemplateEngine();
-        $this->authService = $authService ?? $this->getAuthServiceFromContainer();
-        $this->request = $request ?? Request::createFromGlobals();
+        $this->template = $template;
+        $this->authService = $authService;
+        $this->request = $request;
     }
 
     private function getAuthServiceFromContainer(): ?AuthService
@@ -57,16 +57,6 @@ abstract class Controller
     protected function redirect($url, $statusCode = 302): Response
     {
         return Response::redirect($url, $statusCode);
-    }
-
-    protected function isLoggedIn(): bool
-    {
-        return isset($_SESSION['user_id']) && isset($_SESSION['is_admin']);
-    }
-
-    protected function getCurrentUser()
-    {
-        return $this->authService ? $this->authService->getCurrentUser() : null;
     }
 
     protected function validate(array $rules): array

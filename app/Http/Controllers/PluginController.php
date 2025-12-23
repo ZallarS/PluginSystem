@@ -22,8 +22,16 @@ class PluginController extends Controller
         // Проверка аутентификации и CSRF теперь в middleware
         $pluginManager = \Plugins\PluginManager::getInstance();
 
+        // ИСПРАВЛЕНО: Добавлена закрывающая круглая скобка
         if (!$pluginManager->pluginExists($pluginName)) {
-            $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
+            // Используем session flash
+            try {
+                $session = app(\App\Core\Session\SessionManager::class);
+                $session->flash('flash_error', "Плагин {$pluginName} не найден");
+            } catch (\Exception $e) {
+                $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
+            }
+
             return $this->redirect('/admin/plugins');
         }
 
@@ -31,9 +39,19 @@ class PluginController extends Controller
         $pluginManager->reloadActivePlugins();
 
         if ($result) {
-            $_SESSION['flash_message'] = "Плагин {$pluginName} успешно активирован";
+            try {
+                $session = app(\App\Core\Session\SessionManager::class);
+                $session->flash('flash_message', "Плагин {$pluginName} успешно активирован");
+            } catch (\Exception $e) {
+                $_SESSION['flash_message'] = "Плагин {$pluginName} успешно активирован";
+            }
         } else {
-            $_SESSION['flash_error'] = "Не удалось активировать плагин {$pluginName}";
+            try {
+                $session = app(\App\Core\Session\SessionManager::class);
+                $session->flash('flash_error', "Не удалось активировать плагин {$pluginName}");
+            } catch (\Exception $e) {
+                $_SESSION['flash_error'] = "Не удалось активировать плагин {$pluginName}";
+            }
         }
 
         return $this->redirect('/admin/plugins');
@@ -44,8 +62,15 @@ class PluginController extends Controller
         // Проверка аутентификации и CSRF теперь в middleware
         $pluginManager = \Plugins\PluginManager::getInstance();
 
+        // ИСПРАВЛЕНО: Добавлена закрывающая круглая скобка
         if (!$pluginManager->pluginExists($pluginName)) {
-            $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
+            try {
+                $session = app(\App\Core\Session\SessionManager::class);
+                $session->flash('flash_error', "Плагин {$pluginName} не найден");
+            } catch (\Exception $e) {
+                $_SESSION['flash_error'] = "Плагин {$pluginName} не найден";
+            }
+
             return $this->redirect('/admin/plugins');
         }
 
@@ -53,9 +78,19 @@ class PluginController extends Controller
         $pluginManager->reloadActivePlugins();
 
         if ($result) {
-            $_SESSION['flash_message'] = "Плагин {$pluginName} успешно деактивирован";
+            try {
+                $session = app(\App\Core\Session\SessionManager::class);
+                $session->flash('flash_message', "Плагин {$pluginName} успешно деактивирован");
+            } catch (\Exception $e) {
+                $_SESSION['flash_message'] = "Плагин {$pluginName} успешно деактивирован";
+            }
         } else {
-            $_SESSION['flash_error'] = "Не удалось деактивировать плагин {$pluginName}";
+            try {
+                $session = app(\App\Core\Session\SessionManager::class);
+                $session->flash('flash_error', "Не удалось деактивировать плагин {$pluginName}");
+            } catch (\Exception $e) {
+                $_SESSION['flash_error'] = "Не удалось деактивировать плагин {$pluginName}";
+            }
         }
 
         return $this->redirect('/admin/plugins');

@@ -133,19 +133,13 @@ if (!function_exists('csrf_token')) {
     function csrf_token()
     {
         try {
-            $auth = auth();
-            if (method_exists($auth, 'getCsrfToken')) {
-                return $auth->getCsrfToken();
-            }
+            /** @var \App\Services\AuthService $authService */
+            $authService = app(\App\Services\AuthService::class);
+            return $authService->getCsrfToken();
         } catch (Exception $e) {
             error_log("csrf_token(): Error: " . $e->getMessage());
+            return '';
         }
-
-        // Fallback
-        if (!isset($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        }
-        return $_SESSION['csrf_token'];
     }
 }
 
@@ -182,54 +176,47 @@ if (!function_exists('old')) {
 if (!function_exists('session')) {
     function session($key = null, $value = null)
     {
-        // Убедимся, что сессия запущена
-        if (session_status() === PHP_SESSION_NONE && !defined('SESSION_STARTED_BY_MIDDLEWARE')) {
-            // Минимальная инициализация для хелперов
-            session_start();
-        }
+        /** @var \App\Core\Session\SessionManager $session */
+        $session = app(\App\Core\Session\SessionManager::class);
 
-        if ($key === null) {
+        if (is_null($key)) {
+            // Возвращаем все данные сессии (только для отладки)
             return $_SESSION;
         }
 
-        if ($value === null) {
-            return $_SESSION[$key] ?? null;
+        if (is_null($value)) {
+            return $session->get($key);
         }
 
-        $_SESSION[$key] = $value;
+        $session->set($key, $value);
     }
 }
 
 if (!function_exists('flash')) {
     function flash($key, $value = null)
     {
-        if ($value === null) {
-            $message = $_SESSION['flash'][$key] ?? null;
-            unset($_SESSION['flash'][$key]);
-            return $message;
+        /** @var \App\Core\Session\SessionManager $session */
+        $session = app(\App\Core\Session\SessionManager::class);
+
+        if (is_null($value)) {
+            return $session->getFlash($key);
         }
 
-        $_SESSION['flash'][$key] = $value;
+        $session->flash($key, $value);
     }
 }
 
 if (!function_exists('template')) {
     function template($template, $data = [])
     {
-        static $engine = null;
-
-        if ($engine === null) {
-            $engine = new App\Core\View\TemplateEngine();
-        }
-
-        return $engine->render($template, $data);
+        return view($template, $data);
     }
 }
 
 if (!function_exists('render')) {
     function render($template, $data = [])
     {
-        echo template($template, $data);
+        echo view($template, $data);
     }
 }
 
@@ -328,54 +315,9 @@ if (!function_exists('app')) {
     }
 }
 if (!function_exists('auth')) {
-    /**
-     * Получить сервис аутентификации
-     */
     function auth()
     {
-        try {
-            $authService = app(\App\Services\AuthService::class);
-
-            if ($authService) {
-                return $authService;
-            }
-        } catch (Exception $e) {
-            error_log("auth(): Error getting AuthService: " . $e->getMessage());
-        }
-
-        // Fallback для обратной совместимости
-        return new class {
-            public function isLoggedIn() {
-                return isset($_SESSION['user_id']) &&
-                    isset($_SESSION['is_admin']) &&
-                    $_SESSION['is_admin'];
-            }
-
-            public function getCsrfToken() {
-                if (!isset($_SESSION['csrf_token'])) {
-                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-                }
-                return $_SESSION['csrf_token'];
-            }
-
-            public function validateCsrfToken($token) {
-                return isset($_SESSION['csrf_token']) &&
-                    hash_equals($_SESSION['csrf_token'], $token);
-            }
-
-            public function getCurrentUser() {
-                if (!$this->isLoggedIn()) {
-                    return null;
-                }
-
-                // Создаем минимальный объект пользователя
-                return new class {
-                    public function getId() { return $_SESSION['user_id'] ?? null; }
-                    public function getUsername() { return $_SESSION['username'] ?? 'admin'; }
-                    public function isAdmin() { return true; }
-                };
-            }
-        };
+        return app(\App\Services\AuthService::class);
     }
 }
 if (!function_exists('db')) {
@@ -388,45 +330,26 @@ if (!function_exists('db')) {
     }
 }
 if (!function_exists('view')) {
-    /**
-     * Рендеринг шаблона
-     */
     function view($template, $data = [])
     {
-        $engine = new \App\Core\View\TemplateEngine();
+        $engine = \App\Core\View\TemplateEngine::getInstance();
         return $engine->render($template, $data);
     }
 }
 if (!function_exists('config')) {
-    /**
-     * Получить значение конфигурации
-     */
     function config($key = null, $default = null)
     {
-        static $config = [];
+        /** @var \App\Services\ConfigService $config */
+        static $config = null;
 
-        if (empty($config)) {
-            $appConfig = config_path('app.php');
-            if (file_exists($appConfig)) {
-                $config = require $appConfig;
-            }
+        if ($config === null) {
+            $config = app(\App\Services\ConfigService::class);
         }
 
         if ($key === null) {
-            return $config;
+            return $config->all();
         }
 
-        $keys = explode('.', $key);
-        $value = $config;
-
-        foreach ($keys as $segment) {
-            if (is_array($value) && isset($value[$segment])) {
-                $value = $value[$segment];
-            } else {
-                return $default;
-            }
-        }
-
-        return $value;
+        return $config->get($key, $default);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+/** @var \App\Core\Routing\Router $router */
 
 $router->group([
     'prefix' => '/api',

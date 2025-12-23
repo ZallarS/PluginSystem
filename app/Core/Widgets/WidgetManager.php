@@ -3,117 +3,36 @@ declare(strict_types=1);
 
 namespace App\Core\Widgets;
 
+use App\Core\Session\SessionManager;
+
 class WidgetManager
 {
     private static $instance;
-    private $widgets = [];
-    private $userWidgets = [];
+    private array $widgets = [];
+    private SessionManager $session;
 
-    public static function getInstance()
+    public static function getInstance(SessionManager $session = null): self
     {
         if (self::$instance === null) {
-            self::$instance = new self();
+            if ($session === null) {
+                // Попробуем получить из контейнера
+                try {
+                    $session = app(SessionManager::class);
+                } catch (\Exception $e) {
+                    throw new \RuntimeException('SessionManager is required for WidgetManager');
+                }
+            }
+            self::$instance = new self($session);
         }
         return self::$instance;
     }
 
-    public function __construct()
+    public function __construct(SessionManager $session)
     {
-        $this->loadUserWidgets();
-        // Убираем registerDefaultWidgets - виджеты будут регистрироваться через плагин
+        $this->session = $session;
     }
 
-    private function loadUserWidgets()
-    {
-        if (isset($_SESSION['user_widgets'])) {
-            $this->userWidgets = $_SESSION['user_widgets'];
-        } else {
-            // Инициализируем пустым массивом
-            $this->userWidgets = [];
-            $_SESSION['user_widgets'] = $this->userWidgets;
-        }
-    }
-
-    public function getWidgets()
-    {
-        $visibleWidgets = [];
-        foreach ($this->widgets as $widgetId => $widgetData) {
-            if ($this->isWidgetVisible($widgetId)) {
-                $visibleWidgets[$widgetId] = $widgetData;
-            }
-        }
-        return $visibleWidgets;
-    }
-
-    public function getAllWidgets()
-    {
-        return $this->widgets;
-    }
-
-    public function toggleWidget($widgetId, $enabled)
-    {
-        $this->userWidgets[$widgetId] = $enabled;
-        $_SESSION['user_widgets'] = $this->userWidgets;
-    }
-
-    public function renderWidget($widgetId)
-    {
-        if (!isset($this->widgets[$widgetId]) || !$this->isWidgetVisible($widgetId)) {
-            return '';
-        }
-
-        $widget = $this->widgets[$widgetId];
-        $content = is_callable($widget['content']) ? $widget['content']() : $widget['content'];
-
-        return '
-        <div class="dashboard-widget widget-' . $widget['size'] . '" data-widget-id="' . $widget['id'] . '">
-            <div class="widget-header">
-                <div class="widget-title">
-                    <i class="bi ' . $widget['icon'] . '"></i>
-                    <h5>' . $widget['title'] . '</h5>
-                </div>
-                <div class="widget-actions">
-                    <button type="button" class="btn btn-sm btn-outline-secondary widget-toggle"
-                            data-widget-id="' . $widget['id'] . '">
-                        <i class="bi bi-eye-slash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="widget-body">
-                ' . $content . '
-            </div>
-        </div>';
-    }
-
-    public function renderWidgetsGrid()
-    {
-        $widgets = $this->getWidgets();
-        $html = '<div class="dashboard-widgets-grid">';
-
-        foreach ($widgets as $widgetId => $widgetData) {
-            $html .= $this->renderWidget($widgetId);
-        }
-
-        $html .= '</div>';
-        return $html;
-    }
-
-    public function isWidgetVisible($widgetId)
-    {
-        return isset($this->userWidgets[$widgetId]) && $this->userWidgets[$widgetId];
-    }
-
-    public function getWidget($widgetId)
-    {
-        return $this->widgets[$widgetId] ?? null;
-    }
-
-    public function widgetExists($widgetId)
-    {
-        return isset($this->widgets[$widgetId]);
-    }
-
-    public function registerWidget(array $widgetData)
+    public function registerWidget(array $widgetData): bool
     {
         if (!isset($widgetData['id'])) {
             return false;
@@ -143,43 +62,125 @@ class WidgetManager
             'plugin_name' => $widgetData['plugin_name'] ?? null,
         ];
 
-        // Добавляем виджет в user_widgets если его там нет
-        if (!isset($this->userWidgets[$widgetId])) {
-            $this->userWidgets[$widgetId] = true;
-            $_SESSION['user_widgets'] = $this->userWidgets;
-        }
+        // Автоматически показываем новый виджет
+        $this->showWidget($widgetId);
 
         return true;
     }
 
-    public function unregisterWidget($widgetId)
+    public function getWidget(string $widgetId): ?array
     {
-        if (isset($this->widgets[$widgetId])) {
-            unset($this->widgets[$widgetId]);
-
-            if (isset($this->userWidgets[$widgetId])) {
-                unset($this->userWidgets[$widgetId]);
-                $_SESSION['user_widgets'] = $this->userWidgets;
-            }
-
-            return true;
-        }
-
-        return false;
+        return $this->widgets[$widgetId] ?? null;
     }
 
-    public function refreshWidget($widgetId)
+    public function getAllWidgets(): array
     {
-        if (!isset($this->widgets[$widgetId])) {
-            return null;
+        return $this->widgets;
+    }
+
+    public function getVisibleWidgets(): array
+    {
+        $visible = [];
+        foreach ($this->widgets as $widgetId => $widget) {
+            if ($this->isWidgetVisible($widgetId)) {
+                $visible[$widgetId] = $widget;
+            }
+        }
+        return $visible;
+    }
+
+    public function getHiddenWidgets(): array
+    {
+        $hidden = [];
+        foreach ($this->widgets as $widgetId => $widget) {
+            if (!$this->isWidgetVisible($widgetId)) {
+                $hidden[] = $this->formatWidgetInfo($widgetId, $widget);
+            }
+        }
+        return $hidden;
+    }
+
+    public function isWidgetVisible(string $widgetId): bool
+    {
+        $userWidgets = $this->session->get('user_widgets', []);
+        return isset($userWidgets[$widgetId]) && $userWidgets[$widgetId];
+    }
+
+    public function showWidget(string $widgetId): void
+    {
+        $userWidgets = $this->session->get('user_widgets', []);
+        $userWidgets[$widgetId] = true;
+        $this->session->set('user_widgets', $userWidgets);
+    }
+
+    public function hideWidget(string $widgetId): void
+    {
+        $userWidgets = $this->session->get('user_widgets', []);
+        $userWidgets[$widgetId] = false;
+        $this->session->set('user_widgets', $userWidgets);
+    }
+
+    public function widgetExists(string $widgetId): bool
+    {
+        return isset($this->widgets[$widgetId]);
+    }
+
+    public function renderWidget(string $widgetId): string
+    {
+        $widget = $this->getWidget($widgetId);
+
+        if (!$widget || !$this->isWidgetVisible($widgetId)) {
+            return '';
         }
 
-        $widget = $this->widgets[$widgetId];
+        $content = is_callable($widget['content']) ? $widget['content']() : $widget['content'];
 
-        if (is_callable($widget['content'])) {
-            return $widget['content']();
+        return sprintf(
+            '<div class="dashboard-widget widget-%s" data-widget-id="%s">
+                <div class="widget-header">
+                    <div class="widget-title">
+                        <i class="bi %s"></i>
+                        <h5>%s</h5>
+                    </div>
+                    <div class="widget-actions">
+                        <button type="button" class="btn btn-sm btn-outline-secondary widget-toggle" data-widget-id="%s">
+                            <i class="bi bi-eye-slash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="widget-body">%s</div>
+            </div>',
+            htmlspecialchars($widget['size']),
+            htmlspecialchars($widget['id']),
+            htmlspecialchars($widget['icon']),
+            htmlspecialchars($widget['title']),
+            htmlspecialchars($widget['id']),
+            $content
+        );
+    }
+
+    public function renderWidgetsGrid(): string
+    {
+        $html = '<div class="dashboard-widgets-grid">';
+
+        foreach ($this->getVisibleWidgets() as $widgetId => $widget) {
+            $html .= $this->renderWidget($widgetId);
         }
 
-        return $widget['content'];
+        $html .= '</div>';
+        return $html;
+    }
+
+    private function formatWidgetInfo(string $widgetId, array $widget): array
+    {
+        return [
+            'id' => $widgetId,
+            'title' => $widget['title'] ?? 'Без названия',
+            'icon' => $widget['icon'] ?? 'bi-question-circle',
+            'description' => $widget['description'] ?? 'Описание отсутствует',
+            'size' => $widget['size'] ?? 'medium',
+            'source' => $widget['source'] ?? 'system',
+            'plugin_name' => $widget['plugin_name'] ?? null
+        ];
     }
 }

@@ -20,19 +20,32 @@ class ControllerFactory
 
     public function create(string $controllerClass): Controller
     {
-        // Получаем зависимости из контейнера
+        // Пробуем получить зависимости из контейнера
         $template = $this->container->has(TemplateEngine::class)
             ? $this->container->get(TemplateEngine::class)
             : new TemplateEngine();
 
         $authService = $this->container->has(AuthService::class)
             ? $this->container->get(AuthService::class)
-            : null;
+            : $this->getAuthServiceFallback();
 
         $request = $this->container->has(Request::class)
             ? $this->container->get(Request::class)
             : Request::createFromGlobals();
 
+        // Создаем контроллер
         return new $controllerClass($template, $authService, $request);
+    }
+
+    private function getAuthServiceFallback(): ?AuthService
+    {
+        try {
+            $userRepository = new \App\Repositories\UserRepository();
+            $sessionManager = new \App\Core\Session\SessionManager();
+            return new \App\Services\AuthService($userRepository, $sessionManager);
+        } catch (\Exception $e) {
+            error_log("ControllerFactory: Failed to create AuthService fallback: " . $e->getMessage());
+            return null;
+        }
     }
 }

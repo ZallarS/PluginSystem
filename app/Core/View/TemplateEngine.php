@@ -5,6 +5,7 @@ namespace App\Core\View;
 
 class TemplateEngine
 {
+    private static $instance;
     private string $basePath;
 
     public function __construct(?string $basePath = null)
@@ -12,21 +13,20 @@ class TemplateEngine
         $this->basePath = $basePath ?: dirname(__DIR__, 3) . '/resources/views';
     }
 
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
     public function render($template, $data = []): string
     {
-        // Извлекаем переменные
         extract($data);
-
-        // Начинаем буферизацию
         ob_start();
-
-        // Загружаем шаблон
         $this->loadTemplate($template);
-
-        // Получаем содержимое
-        $content = ob_get_clean();
-
-        return $content;
+        return ob_get_clean();
     }
 
     private function loadTemplate($template): void

@@ -1,4 +1,5 @@
 <?php
+/** @var \App\Core\Routing\Router $router */
 
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AuthController;

@@ -5,18 +5,22 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Repositories\UserRepository;
+use App\Core\Session\SessionManager;
 
 class AuthService
 {
-    private const SESSION_USER_KEY = 'user_id';
-    private const SESSION_USERNAME_KEY = 'username';
-    private const SESSION_IS_ADMIN_KEY = 'is_admin';
+    private const SESSION_USER_KEY = 'auth.user_id';
+    private const SESSION_USERNAME_KEY = 'auth.username';
+    private const SESSION_IS_ADMIN_KEY = 'auth.is_admin';
+    private const SESSION_CSRF_KEY = 'auth.csrf_token';
 
     private UserRepository $userRepository;
+    private SessionManager $session;
 
-    public function __construct(UserRepository $userRepository)
+    public function __construct(UserRepository $userRepository, SessionManager $session)
     {
         $this->userRepository = $userRepository;
+        $this->session = $session;
     }
 
     public function attemptLogin(string $username, string $password): bool
@@ -33,47 +37,27 @@ class AuthService
 
     public function login(User $user): void
     {
-        $_SESSION[self::SESSION_USER_KEY] = $user->getId();
-        $_SESSION[self::SESSION_USERNAME_KEY] = $user->getUsername();
-        $_SESSION[self::SESSION_IS_ADMIN_KEY] = $user->isAdmin();
+        $this->session->set(self::SESSION_USER_KEY, $user->getId());
+        $this->session->set(self::SESSION_USERNAME_KEY, $user->getUsername());
+        $this->session->set(self::SESSION_IS_ADMIN_KEY, $user->isAdmin());
 
         // Регенерируем сессию для предотвращения фиксации
-        session_regenerate_id(true);
+        $this->session->regenerate();
 
         // Обновляем CSRF токен
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-        // Сбрасываем счетчик запросов для регенерации сессии
-        $_SESSION['request_count'] = 0;
+        $this->generateCsrfToken();
     }
 
     public function logout(): void
     {
-        // Очищаем все данные сессии
-        $_SESSION = [];
-
-        // Удаляем cookie сессии
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params["path"],
-                $params["domain"],
-                $params["secure"],
-                $params["httponly"]
-            );
-        }
-
-        session_destroy();
+        $this->session->destroy();
     }
 
     public function isLoggedIn(): bool
     {
-        return isset($_SESSION[self::SESSION_USER_KEY]) &&
-            isset($_SESSION[self::SESSION_IS_ADMIN_KEY]) &&
-            $_SESSION[self::SESSION_IS_ADMIN_KEY];
+        return $this->session->has(self::SESSION_USER_KEY) &&
+            $this->session->has(self::SESSION_IS_ADMIN_KEY) &&
+            $this->session->get(self::SESSION_IS_ADMIN_KEY) === true;
     }
 
     public function getCurrentUser(): ?User
@@ -82,52 +66,32 @@ class AuthService
             return null;
         }
 
-        $userId = $_SESSION[self::SESSION_USER_KEY] ?? null;
-        if ($userId) {
-            return $this->userRepository->find($userId);
-        }
-
-        return null;
-    }
-
-    public function validateCsrfToken(string $token): bool
-    {
-        return isset($_SESSION['csrf_token']) &&
-            hash_equals($_SESSION['csrf_token'], $token);
+        $userId = $this->session->get(self::SESSION_USER_KEY);
+        return $this->userRepository->find($userId);
     }
 
     public function getCsrfToken(): string
     {
-        if (!isset($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        $token = $this->session->get(self::SESSION_CSRF_KEY);
+
+        if (!$token) {
+            $token = $this->generateCsrfToken();
         }
-        return $_SESSION['csrf_token'];
+
+        return $token;
     }
 
-    public function checkPasswordStrength(string $password): array
+    public function validateCsrfToken(string $token): bool
     {
-        $errors = [];
-
-        if (strlen($password) < 8) {
-            $errors[] = 'Пароль должен содержать минимум 8 символов';
-        }
-
-        if (!preg_match('/[A-Z]/', $password)) {
-            $errors[] = 'Пароль должен содержать хотя бы одну заглавную букву';
-        }
-
-        if (!preg_match('/[a-z]/', $password)) {
-            $errors[] = 'Пароль должен содержать хотя бы одну строчную букву';
-        }
-
-        if (!preg_match('/[0-9]/', $password)) {
-            $errors[] = 'Пароль должен содержать хотя бы одну цифру';
-        }
-
-        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
-            $errors[] = 'Пароль должен содержать хотя бы один специальный символ';
-        }
-
-        return $errors;
+        $storedToken = $this->session->get(self::SESSION_CSRF_KEY);
+        return $storedToken && hash_equals($storedToken, $token);
     }
+
+    private function generateCsrfToken(): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->session->set(self::SESSION_CSRF_KEY, $token);
+        return $token;
+    }
+
 }
