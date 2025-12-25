@@ -105,8 +105,11 @@ class Router
         $requestMethod = $_SERVER['REQUEST_METHOD'];
         $requestUri = $this->getCurrentUri();
 
+        // Обрабатываем HEAD запросы как GET
+        $searchMethod = ($requestMethod === 'HEAD') ? 'GET' : $requestMethod;
+
         foreach ($this->routes as $route) {
-            if ($route->matches($requestMethod, $requestUri)) {
+            if ($route->matches($searchMethod, $requestUri)) {
                 $this->currentRoute = $route;
                 return $this->executeRoute($route);
             }
@@ -149,9 +152,19 @@ class Router
 
         // Отправляем результат
         if ($result instanceof Response) {
-            $result->send();
+            if ($_SERVER['REQUEST_METHOD'] === 'HEAD') {
+                // Вместо $result->sendHeaders() просто отправим заголовки
+                header($_SERVER['SERVER_PROTOCOL'] . ' 200 OK');
+                // Здесь можно добавить другие заголовки из $result
+                return; // Выходим без вывода тела
+            } else {
+                $result->send();
+            }
         } else {
-            echo $result;
+            // Если результат не объект Response
+            if ($_SERVER['REQUEST_METHOD'] !== 'HEAD') {
+                echo $result;
+            }
         }
     }
 
