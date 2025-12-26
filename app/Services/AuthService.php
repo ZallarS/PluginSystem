@@ -30,10 +30,6 @@ class AuthService
         if ($user && $user->verifyPassword($password)) {
             $this->login($user);
 
-            // Очищаем старые ключи сессии после успешного входа
-            if (method_exists($this->session, 'clearLegacyKeys')) {
-                $this->session->clearLegacyKeys();
-            }
 
             return true;
         }

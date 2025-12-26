@@ -39,14 +39,6 @@ class VerifyCsrfToken extends Middleware
         return in_array($request->method(), ['HEAD', 'GET', 'OPTIONS']);
     }
 
-    protected function tokensMatch(Request $request): bool
-    {
-        $token = $this->getTokenFromRequest($request);
-
-        return isset($_SESSION['csrf_token']) &&
-            hash_equals($_SESSION['csrf_token'], (string)$token);
-    }
-
     protected function getTokenFromRequest(Request $request)
     {
         $token = $request->post('_token') ?: $request->header('X-CSRF-TOKEN');
@@ -64,7 +56,10 @@ class VerifyCsrfToken extends Middleware
             return Response::json(['error' => 'Invalid CSRF token'], 403);
         }
 
-        $_SESSION['flash_error'] = 'Недействительный CSRF токен';
+        // Используем SessionInterface вместо прямого доступа
+        $session = app(\App\Core\Session\SessionInterface::class);
+        $session->flash('flash_error', 'Недействительный CSRF токен');
+
         $redirectUrl = $request->server('HTTP_REFERER', '/');
 
         return new Response('', 302, ['Location' => $redirectUrl]);

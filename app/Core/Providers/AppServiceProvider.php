@@ -5,6 +5,7 @@ namespace App\Core\Providers;
 
 use App\Core\Container\Container;
 use App\Core\Session\SessionManager;
+use App\Core\Session\SessionInterface;
 use App\Core\View\TemplateEngine;
 use App\Core\Widgets\WidgetManager;
 use App\Services\AuthService;
@@ -30,6 +31,9 @@ class AppServiceProvider
 
         // Регистрируем зависимости
         $this->registerDependencies();
+
+        // Регистрируем контроллеры
+        $this->registerControllers();
     }
 
     private function registerSingletons(): void
@@ -38,7 +42,9 @@ class AppServiceProvider
         $this->container->singleton(SessionManager::class, function() {
             return new SessionManager();
         });
-        $this->container->singleton(SessionInterface::class, SessionManager::class);
+
+        // SessionInterface как алиас на SessionManager
+        $this->container->alias(SessionManager::class, SessionInterface::class);
 
         // TemplateEngine как синглтон
         $this->container->singleton(TemplateEngine::class, function() {
@@ -81,6 +87,26 @@ class AppServiceProvider
         $this->container->singleton(\App\Core\ControllerFactory::class, function($container) {
             return new \App\Core\ControllerFactory($container);
         });
+    }
+
+    private function registerControllers(): void
+    {
+        // Регистрируем контроллеры как синглтоны
+        $controllers = [
+            \App\Http\Controllers\HomeController::class,
+            \App\Http\Controllers\AuthController::class,
+            \App\Http\Controllers\AdminController::class,
+            \App\Http\Controllers\PluginController::class,
+            \App\Http\Controllers\TestController::class,
+        ];
+
+        foreach ($controllers as $controller) {
+            $this->container->singleton($controller, function($container) use ($controller) {
+                // Используем ControllerFactory для создания контроллеров
+                $factory = $container->get(\App\Core\ControllerFactory::class);
+                return $factory->create($controller);
+            });
+        }
     }
 
     private function getPdoConnection(): ?\PDO

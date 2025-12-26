@@ -68,7 +68,10 @@ class Application
 
     private function initRouter(): void
     {
-        $this->router = new Router();
+        // Создаем ControllerFactory
+        $controllerFactory = new ControllerFactory($this->container);
+        // Создаем Router с фабрикой
+        $this->router = new Router($controllerFactory);
         $this->loadRoutes();
     }
 

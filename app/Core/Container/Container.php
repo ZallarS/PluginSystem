@@ -90,6 +90,11 @@ class Container implements ContainerInterface
         // Получаем конкретную реализацию
         $concrete = $this->getConcrete($abstract);
 
+        // Проверяем существование класса
+        if (is_string($concrete) && !class_exists($concrete) && !interface_exists($concrete)) {
+            throw new Exception("Class or interface {$concrete} does not exist");
+        }
+
         // Создаем объект
         $object = $this->build($concrete, $parameters);
 

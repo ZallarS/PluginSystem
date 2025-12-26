@@ -23,19 +23,6 @@ class AuthController extends Controller
 
     public function login()
     {
-        error_log("=== AUTH DEBUG ===");
-        error_log("Session status: " . session_status());
-        error_log("SESSION array: " . print_r($_SESSION, true));
-
-        if ($this->session) {
-            error_log("SessionManager isStarted: " . ($this->session->isStarted() ? 'true' : 'false'));
-            error_log("SessionManager has user_id: " . ($this->session->has('user_id') ? 'true' : 'false'));
-        }
-
-        if ($this->authService) {
-            error_log("AuthService isLoggedIn: " . ($this->authService->isLoggedIn() ? 'true' : 'false'));
-        }
-        error_log("=== END DEBUG ===");
 
         if ($this->authService && $this->authService->isLoggedIn()) {
             return $this->redirect('/admin');

@@ -169,7 +169,8 @@ if (!function_exists('csrf_header')) {
 if (!function_exists('old')) {
     function old($key, $default = '')
     {
-        return $_SESSION['old_input'][$key] ?? $default;
+        $session = app(\App\Core\Session\SessionInterface::class);
+        return $session->get('old_input.' . $key, $default);
     }
 }
 
@@ -184,45 +185,7 @@ if (!function_exists('session')) {
         }
 
         if (is_null($value)) {
-            // Проверяем старые ключи для обратной совместимости
-            $legacyMap = [
-                'user_id' => 'auth.user_id',
-                'is_admin' => 'auth.is_admin',
-                'username' => 'auth.username',
-                'csrf_token' => 'auth.csrf_token',
-                'flash_error' => '_flash.flash_error',
-                'flash_message' => '_flash.flash_message',
-            ];
-
-            if (isset($legacyMap[$key])) {
-                $newKey = $legacyMap[$key];
-                if (strpos($newKey, '_flash.') === 0) {
-                    return $session->getFlash(substr($newKey, 7));
-                }
-                return $session->get($newKey);
-            }
-
             return $session->get($key);
-        }
-
-        // Для обратной совместимости сохраняем в новые ключи
-        $legacyMap = [
-            'user_id' => 'auth.user_id',
-            'is_admin' => 'auth.is_admin',
-            'username' => 'auth.username',
-            'csrf_token' => 'auth.csrf_token',
-            'flash_error' => '_flash.flash_error',
-            'flash_message' => '_flash.flash_message',
-        ];
-
-        if (isset($legacyMap[$key])) {
-            $newKey = $legacyMap[$key];
-            if (strpos($newKey, '_flash.') === 0) {
-                $session->flash(substr($newKey, 7), $value);
-                return;
-            }
-            $session->set($newKey, $value);
-            return;
         }
 
         $session->set($key, $value);
@@ -333,13 +296,14 @@ if (!function_exists('app')) {
 
             // Если запрашивается конкретный сервис
             if (is_string($abstract)) {
-                if ($container->has($abstract)) {
+                // Пытаемся получить из контейнера
+                try {
                     return $container->get($abstract);
-                }
-
-                // Попробуем создать класс, если он существует
-                if (class_exists($abstract)) {
-                    return $container->make($abstract);
+                } catch (Exception $e) {
+                    // Если не найден в контейнере, пробуем создать
+                    if (class_exists($abstract)) {
+                        return $container->make($abstract);
+                    }
                 }
             }
 

@@ -44,6 +44,16 @@ class ControllerFactory
 
     private function getAuthServiceFallback(): ?AuthService
     {
+        // Пытаемся получить AuthService из контейнера
+        if ($this->container->has(AuthService::class)) {
+            try {
+                return $this->container->get(AuthService::class);
+            } catch (\Exception $e) {
+                error_log("ControllerFactory: Failed to get AuthService from container: " . $e->getMessage());
+            }
+        }
+
+        // Fallback: создаем вручную
         try {
             $userRepository = new \App\Repositories\UserRepository();
             $sessionManager = new \App\Core\Session\SessionManager();

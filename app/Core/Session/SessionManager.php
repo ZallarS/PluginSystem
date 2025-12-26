@@ -42,24 +42,20 @@ class SessionManager implements SessionInterface
         $this->flashMessages = $_SESSION['_flash'] ?? [];
         unset($_SESSION['_flash']);
 
-        // Синхронизируем старые ключи сессии с новыми
-        $this->migrateOldSessionKeys();
+        $this->removeLegacyKeys();
+
     }
 
-    private function migrateOldSessionKeys(): void
+    /**
+     * Удаляет legacy ключи сессии
+     */
+    private function removeLegacyKeys(): void
     {
-        // Миграция старых ключей сессии
-        if (isset($_SESSION['user_id'])) {
-            $this->set('auth.user_id', $_SESSION['user_id']);
-        }
-        if (isset($_SESSION['is_admin'])) {
-            $this->set('auth.is_admin', $_SESSION['is_admin']);
-        }
-        if (isset($_SESSION['username'])) {
-            $this->set('auth.username', $_SESSION['username']);
-        }
-        if (isset($_SESSION['csrf_token'])) {
-            $this->set('auth.csrf_token', $_SESSION['csrf_token']);
+        $legacyKeys = ['user_id', 'is_admin', 'username', 'csrf_token', 'flash_error', 'flash_message'];
+        foreach ($legacyKeys as $key) {
+            if (isset($_SESSION[$key])) {
+                unset($_SESSION[$key]);
+            }
         }
     }
 
@@ -67,29 +63,7 @@ class SessionManager implements SessionInterface
     {
         $this->ensureStarted();
 
-        // Сначала проверяем нашу структуру
-        if (isset($_SESSION[$key])) {
-            return $_SESSION[$key];
-        }
-
-        // Для обратной совместимости проверяем старые ключи
-        return $this->getLegacyKey($key, $default);
-    }
-
-    private function getLegacyKey(string $key, $default = null)
-    {
-        $legacyMap = [
-            'auth.user_id' => 'user_id',
-            'auth.is_admin' => 'is_admin',
-            'auth.username' => 'username',
-            'auth.csrf_token' => 'csrf_token',
-        ];
-
-        if (isset($legacyMap[$key]) && isset($_SESSION[$legacyMap[$key]])) {
-            return $_SESSION[$legacyMap[$key]];
-        }
-
-        return $default;
+        return $_SESSION[$key] ?? $default;
     }
 
     public function set(string $key, $value): void
@@ -102,41 +76,13 @@ class SessionManager implements SessionInterface
     {
         $this->ensureStarted();
 
-        if (isset($_SESSION[$key])) {
-            return true;
-        }
-
-        // Проверяем старые ключи для обратной совместимости
-        $legacyMap = [
-            'auth.user_id' => 'user_id',
-            'auth.is_admin' => 'is_admin',
-            'auth.username' => 'username',
-            'auth.csrf_token' => 'csrf_token',
-        ];
-
-        if (isset($legacyMap[$key])) {
-            return isset($_SESSION[$legacyMap[$key]]);
-        }
-
-        return false;
+        return isset($_SESSION[$key]);
     }
 
     public function remove(string $key): void
     {
         $this->ensureStarted();
         unset($_SESSION[$key]);
-
-        // Также удаляем старые ключи
-        $legacyMap = [
-            'auth.user_id' => 'user_id',
-            'auth.is_admin' => 'is_admin',
-            'auth.username' => 'username',
-            'auth.csrf_token' => 'csrf_token',
-        ];
-
-        if (isset($legacyMap[$key])) {
-            unset($_SESSION[$legacyMap[$key]]);
-        }
     }
 
     public function flash(string $key, $value): void
@@ -211,19 +157,6 @@ class SessionManager implements SessionInterface
     {
         if (!$this->started) {
             $this->start();
-        }
-    }
-
-    /**
-     * Очищает старые ключи сессии для миграции
-     */
-    public function clearLegacyKeys(): void
-    {
-        $this->ensureStarted();
-
-        $legacyKeys = ['user_id', 'is_admin', 'username', 'csrf_token', 'flash_error', 'flash_message'];
-        foreach ($legacyKeys as $key) {
-            unset($_SESSION[$key]);
         }
     }
 }
