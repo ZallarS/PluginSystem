@@ -141,23 +141,49 @@ class Container implements ContainerInterface
         foreach ($parameters as $parameter) {
             $dependency = $parameter->getType();
 
-            if (!$dependency || $dependency->isBuiltin()) {
-                // Примитивный тип или без типа
-                $name = $parameter->getName();
+            // Если параметр уже предоставлен
+            $name = $parameter->getName();
+            if (array_key_exists($name, $provided)) {
+                $dependencies[] = $provided[$name];
+                continue;
+            }
 
-                if (array_key_exists($name, $provided)) {
-                    $dependencies[] = $provided[$name];
-                } elseif ($parameter->isDefaultValueAvailable()) {
+            // Если есть тип и он не встроенный
+            if ($dependency && !$dependency->isBuiltin()) {
+                // Объектный тип
+                $class = $dependency->getName();
+
+                // Проверяем, может ли параметр быть null
+                $allowsNull = $parameter->allowsNull();
+
+                try {
+                    // Пытаемся разрешить зависимость
+                    if ($this->has($class) || class_exists($class)) {
+                        $dependencies[] = $this->resolve($class);
+                    } elseif ($allowsNull) {
+                        $dependencies[] = null;
+                    } else {
+                        throw new Exception("Cannot resolve dependency: {$class}");
+                    }
+                } catch (Exception $e) {
+                    // Если не удалось и параметр может быть null или имеет значение по умолчанию
+                    if ($allowsNull) {
+                        $dependencies[] = null;
+                    } elseif ($parameter->isDefaultValueAvailable()) {
+                        $dependencies[] = $parameter->getDefaultValue();
+                    } else {
+                        throw $e;
+                    }
+                }
+            } else {
+                // Примитивный тип или без типа
+                if ($parameter->isDefaultValueAvailable()) {
                     $dependencies[] = $parameter->getDefaultValue();
                 } elseif ($parameter->allowsNull()) {
                     $dependencies[] = null;
                 } else {
                     throw new Exception("Cannot resolve dependency: {$name}");
                 }
-            } else {
-                // Объектный тип
-                $class = $dependency->getName();
-                $dependencies[] = $this->resolve($class);
             }
         }
 

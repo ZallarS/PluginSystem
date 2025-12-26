@@ -9,20 +9,23 @@ use App\Core\Session\SessionInterface;
 class AdminController extends Controller
 {
     use Concerns\HasSession;
+    private WidgetManager $widgetManager;
 
     public function __construct(
         \App\Core\View\TemplateEngine $template,
         ?\App\Services\AuthService $authService,
         \App\Http\Request $request,
-        ?SessionInterface $session = null
+        ?SessionInterface $session = null,
+        WidgetManager $widgetManager = null
     ) {
         parent::__construct($template, $authService, $request, $session);
+        $this->widgetManager = $widgetManager ?? app(WidgetManager::class);
     }
 
     public function dashboard()
     {
         // Проверка аутентификации теперь в middleware
-        $widgetManager = WidgetManager::getInstance();
+        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
         $widgetsGrid = $widgetManager->renderWidgetsGrid();
 
         $data = [
@@ -73,7 +76,7 @@ class AdminController extends Controller
             return $this->json(['error' => 'Widget ID is required'], 400);
         }
 
-        $widgetManager = WidgetManager::getInstance();
+        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
 
         if ($action === 'hide_widget') {
             $widgetManager->hideWidget($widgetId);
@@ -95,7 +98,7 @@ class AdminController extends Controller
     public function getHiddenWidgets()
     {
         try {
-            $widgetManager = WidgetManager::getInstance();
+            $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
             $hiddenWidgets = $widgetManager->getHiddenWidgets();
 
             return $this->json([
@@ -110,7 +113,7 @@ class AdminController extends Controller
 
     public function getWidgetInfo($widgetId)
     {
-        $widgetManager = WidgetManager::getInstance();
+        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
         $widget = $widgetManager->getWidget($widgetId);
 
         if ($widget) {
@@ -125,8 +128,7 @@ class AdminController extends Controller
 
     public function getWidgetHtml($widgetId)
     {
-        // Проверка аутентификации теперь в middleware
-        $widgetManager = WidgetManager::getInstance();
+        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
         $widget = $widgetManager->getWidget($widgetId);
 
         if (!$widget) {

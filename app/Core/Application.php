@@ -138,9 +138,16 @@ class Application
 
     private function initPluginWidgets(array $activePlugins): void
     {
+        // Получаем WidgetManager из контейнера
+        $widgetManager = $this->container->get(\App\Core\Widgets\WidgetManager::class);
+
         foreach ($activePlugins as $pluginName => $plugin) {
             if ($plugin && method_exists($plugin, 'init')) {
                 try {
+                    // Передаем WidgetManager в плагин, если он поддерживает это
+                    if (method_exists($plugin, 'setWidgetManager')) {
+                        $plugin->setWidgetManager($widgetManager);
+                    }
                     $plugin->init();
                 } catch (\Exception $e) {
                     error_log("Core: Error initializing plugin {$pluginName}: " . $e->getMessage());

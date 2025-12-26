@@ -7,7 +7,6 @@ use App\Core\View\TemplateEngine;
 use App\Services\AuthService;
 use App\Http\Request;
 use App\Core\Session\SessionInterface;
-use App\Http\Response;
 
 abstract class Controller extends BaseController
 {
