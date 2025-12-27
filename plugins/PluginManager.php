@@ -78,7 +78,6 @@ class PluginManager
                 }
             }
         } catch (PDOException $e) {
-            error_log("PluginManager: Database connection failed - " . $e->getMessage());
             // Если БД недоступна, используем файловое хранилище как fallback
             $this->db = null;
         }
@@ -100,10 +99,8 @@ class PluginManager
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
             $this->db->exec($sql);
-            error_log("PluginManager: Plugins table created or already exists");
 
         } catch (PDOException $e) {
-            error_log("PluginManager: Failed to create plugins table - " . $e->getMessage());
         }
     }
 
@@ -121,28 +118,22 @@ class PluginManager
                     $this->activePlugins[$pluginName] = null; // Заполняем, экземпляры создадим позже
                 }
 
-                error_log("PluginManager: Loaded " . count($activePlugins) . " active plugins from database");
             } catch (PDOException $e) {
-                error_log("PluginManager: Failed to load active plugins from DB - " . $e->getMessage());
                 $this->activePlugins = [];
             }
         } else {
             $this->activePlugins = [];
-            error_log("PluginManager: Database not available, starting with empty active plugins");
         }
     }
 
     public function loadPlugins()
     {
-        error_log("PluginManager: Loading plugins from directory: " . $this->pluginsDir);
 
         if (!is_dir($this->pluginsDir)) {
-            error_log("PluginManager: Plugins directory does not exist: " . $this->pluginsDir);
             return 0;
         }
 
         $pluginFolders = glob($this->pluginsDir . '*', GLOB_ONLYDIR);
-        error_log("PluginManager: Found " . count($pluginFolders) . " plugin folders");
 
         // ВАЖНО: Очищаем массив плагинов перед загрузкой
         $this->plugins = [];
@@ -154,8 +145,6 @@ class PluginManager
                 continue;
             }
 
-            error_log("PluginManager: Processing plugin: " . $pluginName);
-
             $pluginFile = $pluginFolder . '/Plugin.php';
             $configFile = $pluginFolder . '/plugin.json';
 
@@ -164,12 +153,10 @@ class PluginManager
                 $config = json_decode($configContent, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    error_log("Plugin {$pluginName}: Invalid JSON in config file - " . json_last_error_msg());
                     continue;
                 }
 
                 if (!$this->checkRequirements($config)) {
-                    error_log("Plugin {$pluginName}: requirements not met");
                     continue;
                 }
 
@@ -184,7 +171,6 @@ class PluginManager
                         $stmt->execute([':plugin_name' => $pluginName]);
                         $isActive = $stmt->fetchColumn() > 0;
                     } catch (PDOException $e) {
-                        error_log("PluginManager: Failed to check plugin activity in DB - " . $e->getMessage());
                     }
                 }
 
@@ -199,13 +185,9 @@ class PluginManager
                     $this->loadPluginInstance($pluginName);
                 }
 
-                error_log("Plugin {$pluginName}: registered successfully (active: " . ($isActive ? 'yes' : 'no') . ")");
             } else {
-                error_log("PluginManager: Plugin " . $pluginName . " missing required files");
             }
         }
-
-        error_log("PluginManager: Total plugins registered: " . count($this->plugins));
         return count($this->plugins);
     }
 
@@ -219,7 +201,6 @@ class PluginManager
                 $currentVersion = PHP_VERSION;
 
                 if (!version_compare($currentVersion, $requiredVersion, '>=')) {
-                    error_log("Plugin requirement failed: PHP {$currentVersion} < {$requiredVersion}");
                     return false;
                 }
             }
@@ -231,7 +212,6 @@ class PluginManager
     private function loadPluginInstance($pluginName)
     {
         if (!isset($this->plugins[$pluginName])) {
-            error_log("Plugin {$pluginName}: Plugin data not found");
             return false;
         }
 
@@ -239,7 +219,6 @@ class PluginManager
         $pluginFile = $pluginData['path'] . '/Plugin.php';
 
         if (!file_exists($pluginFile)) {
-            error_log("Plugin {$pluginName}: Plugin file not found: {$pluginFile}");
             return false;
         }
 
@@ -258,14 +237,12 @@ class PluginManager
 
             foreach ($possibleClassNames as $className) {
                 if (class_exists($className)) {
-                    error_log("Plugin {$pluginName}: Found class: {$className}");
                     $pluginInstance = new $className();
                     break;
                 }
             }
 
             if (!$pluginInstance) {
-                error_log("Plugin {$pluginName}: No valid class found");
                 return false;
             }
 
@@ -275,12 +252,9 @@ class PluginManager
                 $pluginInstance->init();
             }
 
-            error_log("Plugin {$pluginName}: instance loaded for active plugin");
             return true;
 
         } catch (\Exception $e) {
-            error_log("Plugin {$pluginName}: failed to load instance - " . $e->getMessage());
-            error_log("Plugin {$pluginName}: Stack trace: " . $e->getTraceAsString());
             return false;
         }
     }
@@ -288,24 +262,18 @@ class PluginManager
     public function activatePlugin($pluginName)
     {
         if (!isset($this->plugins[$pluginName])) {
-            error_log("PluginManager: Plugin not found: {$pluginName}");
             return false;
         }
 
         // Если уже активен
         if ($this->isPluginActive($pluginName)) {
-            error_log("PluginManager: Plugin already active: {$pluginName}");
             return true;
         }
 
         $pluginData = $this->plugins[$pluginName];
         $pluginFile = $pluginData['path'] . '/Plugin.php';
 
-        error_log("PluginManager: Activating plugin: {$pluginName}");
-        error_log("PluginManager: Plugin file path: {$pluginFile}");
-
         if (!file_exists($pluginFile)) {
-            error_log("PluginManager: Plugin file not found: {$pluginFile}");
             return false;
         }
 
@@ -324,16 +292,13 @@ class PluginManager
 
             foreach ($possibleClassNames as $className) {
                 if (class_exists($className)) {
-                    error_log("PluginManager: Found class: {$className}");
                     $pluginInstance = new $className();
                     break;
                 } else {
-                    error_log("PluginManager: Class not found: {$className}");
                 }
             }
 
             if (!$pluginInstance) {
-                error_log("PluginManager: Could not find any valid class for plugin: {$pluginName}");
                 return false;
             }
 
@@ -353,13 +318,9 @@ class PluginManager
 
             $this->saveActivePluginToDatabase($pluginName);
 
-            error_log("PluginManager: Plugin {$pluginName}: Activated and saved to database");
-            error_log("PluginManager: Active plugins count after activation: " . count($this->activePlugins));
             return true;
 
         } catch (\Exception $e) {
-            error_log("PluginManager: Plugin {$pluginName}: Failed to activate - " . $e->getMessage());
-            error_log("PluginManager: Stack trace: " . $e->getTraceAsString());
             return false;
         }
     }
@@ -367,7 +328,6 @@ class PluginManager
     public function deactivatePlugin($pluginName)
     {
         if (!isset($this->plugins[$pluginName])) {
-            error_log("PluginManager: Plugin not found: {$pluginName}");
             return false;
         }
 
@@ -380,14 +340,12 @@ class PluginManager
 
         $this->removeActivePluginFromDatabase($pluginName);
 
-        error_log("PluginManager: Plugin {$pluginName}: Deactivated and removed from database");
         return true;
     }
 
     private function saveActivePluginToDatabase($pluginName)
     {
         if (!$this->db) {
-            error_log("PluginManager: Database not available, cannot save plugin: {$pluginName}");
             return false;
         }
 
@@ -396,7 +354,6 @@ class PluginManager
             $stmt->execute([':plugin_name' => $pluginName]);
             return true;
         } catch (PDOException $e) {
-            error_log("PluginManager: Failed to save active plugin to DB - " . $e->getMessage());
             return false;
         }
     }
@@ -404,7 +361,6 @@ class PluginManager
     private function removeActivePluginFromDatabase($pluginName)
     {
         if (!$this->db) {
-            error_log("PluginManager: Database not available, cannot remove plugin: {$pluginName}");
             return false;
         }
 
@@ -413,7 +369,6 @@ class PluginManager
             $stmt->execute([':plugin_name' => $pluginName]);
             return true;
         } catch (PDOException $e) {
-            error_log("PluginManager: Failed to remove active plugin from DB - " . $e->getMessage());
             return false;
         }
     }
@@ -436,17 +391,12 @@ class PluginManager
 
     public function getPlugins()
     {
-        error_log("PluginManager: Getting plugins list");
-        error_log("PluginManager: Total plugins in array: " . count($this->plugins));
 
         foreach ($this->plugins as $name => &$pluginData) {
             // ОБЯЗАТЕЛЬНО обновляем статус из реальных данных
             $pluginData['active'] = $this->isPluginActive($name);
-            error_log("PluginManager: Plugin {$name} status: " . ($pluginData['active'] ? 'active' : 'inactive'));
         }
         unset($pluginData); // Разрываем ссылку
-
-        error_log("PluginManager: Returning " . count($this->plugins) . " plugins");
         return $this->plugins;
     }
 
@@ -464,13 +414,11 @@ class PluginManager
     {
         // Сначала проверяем в массиве активных плагинов (учитываем и null и объект)
         if (isset($this->activePlugins[$name]) || array_key_exists($name, $this->activePlugins)) {
-            error_log("PluginManager: Plugin {$name} is active in activePlugins array");
             return true;
         }
 
         // Затем проверяем в массиве всех плагинов
         if (isset($this->plugins[$name]['active']) && $this->plugins[$name]['active'] === true) {
-            error_log("PluginManager: Plugin {$name} is active in plugins array");
             return true;
         }
 
@@ -482,17 +430,11 @@ class PluginManager
                 $count = $stmt->fetchColumn();
                 $isActive = $count > 0;
 
-                if ($isActive) {
-                    error_log("PluginManager: Plugin {$name} is active in database (count: {$count})");
-                }
-
                 return $isActive;
             } catch (PDOException $e) {
-                error_log("PluginManager: Failed to check plugin activity in DB - " . $e->getMessage());
             }
         }
 
-        error_log("PluginManager: Plugin {$name} is NOT active");
         return false;
     }
 
@@ -513,9 +455,7 @@ class PluginManager
         if ($this->db) {
             try {
                 $this->db->exec("DELETE FROM active_plugins");
-                error_log("PluginManager: Cleared all active plugins from database");
             } catch (PDOException $e) {
-                error_log("PluginManager: Failed to clear active plugins from DB - " . $e->getMessage());
             }
         }
     }

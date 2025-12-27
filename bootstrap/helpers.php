@@ -137,7 +137,6 @@ if (!function_exists('csrf_token')) {
             $authService = app(\App\Services\AuthService::class);
             return $authService->getCsrfToken();
         } catch (Exception $e) {
-            error_log("csrf_token(): Error: " . $e->getMessage());
             return '';
         }
     }
@@ -279,8 +278,7 @@ if (!function_exists('e')) {
 if (!function_exists('app')) {
     function app($abstract = null)
     {
-        error_log("Использование app() устарело. Используйте внедрение зависимостей.");
-        
+
         try {
             // Пытаемся получить Application
             $application = \App\Core\Application::getInstance();
@@ -312,7 +310,6 @@ if (!function_exists('app')) {
             return null;
 
         } catch (Exception $e) {
-            error_log("app(): Error: " . $e->getMessage());
             return null;
         }
     }

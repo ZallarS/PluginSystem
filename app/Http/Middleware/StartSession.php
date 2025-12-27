@@ -16,20 +16,13 @@ class StartSession extends Middleware
         if ($this->shouldSkip($request)) {
             return $next($request);
         }
-
-        // Логируем начало middleware
-        error_log("StartSession middleware: Начало обработки запроса");
         
         /** @var SessionInterface $session */
         $session = app(SessionInterface::class);
-        error_log("StartSession middleware: Получен экземпляр SessionInterface");
-        
         $session->start();
-        error_log("StartSession middleware: Сессия запущена");
 
         // Инициализируем user_widgets если не существует
         if (!$session->has('user_widgets')) {
-            error_log("StartSession middleware: Инициализация user_widgets");
             $session->set('user_widgets', []);
         }
 

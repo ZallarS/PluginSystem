@@ -42,8 +42,6 @@ try {
     $app = new App\Core\Application();
     $app->run();
 } catch (Throwable $e) {
-    error_log("Fatal Error: " . $e->getMessage());
-    error_log($e->getTraceAsString());
 
     http_response_code(500);
 

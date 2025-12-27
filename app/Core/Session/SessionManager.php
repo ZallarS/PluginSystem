@@ -10,16 +10,13 @@ class SessionManager implements SessionInterface
 
     public function start(array $options = []): void
     {
-        // Логируем попытку запуска сессии
-        error_log("SessionManager: Попытка запуска сессии. Started: " . ($this->started ? 'true' : 'false') . ", Status: " . session_status());
-        
+
         if ($this->started || session_status() === PHP_SESSION_ACTIVE) {
             // Если сессия уже запущена, синхронизируем состояние
             if (session_status() === PHP_SESSION_ACTIVE && !$this->started) {
                 $this->started = true;
                 $this->flashMessages = $_SESSION['_flash'] ?? [];
                 unset($_SESSION['_flash']);
-                error_log("SessionManager: Сессия активна, синхронизация состояния");
             }
             return;
         }
@@ -41,12 +38,10 @@ class SessionManager implements SessionInterface
 
         session_start();
         $this->started = true;
-        error_log("SessionManager: Сессия запущена, started = true");
 
         // Инициализируем flash сообщения
         $this->flashMessages = $_SESSION['_flash'] ?? [];
         unset($_SESSION['_flash']);
-        error_log("SessionManager: Flash сообщения инициализированы");
 
         $this->removeLegacyKeys();
 
@@ -162,7 +157,6 @@ class SessionManager implements SessionInterface
     private function ensureStarted(): void
     {
         if (!$this->started) {
-            error_log("SessionManager: ensureStarted вызывает start()");
             $this->start();
         }
     }

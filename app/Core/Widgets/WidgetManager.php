@@ -125,13 +125,10 @@
          */
         public static function getInstance($session = null): self
         {
-            error_log("Использование WidgetManager::getInstance() устарело. Используйте внедрение зависимостей.");
-            
             // Получаем экземпляр через контейнер
             $widgetManager = app(self::class);
 
             if (!$widgetManager) {
-                error_log("WidgetManager не найден в контейнере. Инициализация через fallback.");
                 // Fallback для плагинов, которые могут вызывать этот метод до инициализации приложения
                 $storage = new SessionWidgetStorage($session);
                 $renderer = new WidgetRenderer();

@@ -18,12 +18,14 @@ class AdminController extends Controller
         ?SessionInterface $session = null,
         WidgetManager $widgetManager = null
     ) {
+
         parent::__construct($template, $authService, $request, $session);
         $this->widgetManager = $widgetManager ?? throw new \Exception('WidgetManager должен быть внедрен через DI');
     }
 
     public function dashboard()
     {
+        
         // Проверка аутентификации теперь в middleware
         $widgetsGrid = $this->widgetManager->renderWidgetsGrid();
 
@@ -38,6 +40,7 @@ class AdminController extends Controller
 
     public function saveWidgets()
     {
+        
         // Проверка аутентификации и CSRF теперь в middleware
         if ($this->request->method() !== 'POST') {
             return $this->json(['error' => 'Invalid request'], 400);
@@ -62,12 +65,15 @@ class AdminController extends Controller
 
     public function toggleWidget()
     {
+
+        
         // Проверка аутентификации и CSRF теперь в middleware
         if ($this->request->method() !== 'POST') {
             return $this->json(['error' => 'Invalid request'], 400);
         }
 
         $widgetId = $this->request->post('widget_id', '');
+
         $action = $this->request->post('action', '');
 
         if (!$widgetId) {
@@ -104,7 +110,6 @@ class AdminController extends Controller
                 'hidden_widgets' => $hiddenWidgets
             ]);
         } catch (\Exception $e) {
-            error_log("Error in getHiddenWidgets: " . $e->getMessage());
             return $this->json(['error' => 'Internal server error'], 500);
         }
     }

@@ -63,9 +63,5 @@ class Logger
 
         file_put_contents($this->logFile, $logLine, FILE_APPEND);
 
-        // В режиме отладки также выводим в error_log
-        if ($this->debugMode && $level === 'ERROR') {
-            error_log(trim($logLine));
-        }
     }
 }

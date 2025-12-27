@@ -14,7 +14,6 @@ class PluginService
         private \Plugins\PluginManager $pluginManager,
         private HookManager $hookManager
     ) {
-        error_log("PluginService: Создан экземпляр с PluginManager и HookManager");
     }
 
     public function getAllPlugins(): array
@@ -74,7 +73,6 @@ class PluginService
                 $plugin->init();
                 return true;
             } catch (\Exception $e) {
-                error_log("Failed to initialize plugin {$pluginName}: " . $e->getMessage());
                 return false;
             }
         }

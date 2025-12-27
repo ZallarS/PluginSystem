@@ -176,8 +176,6 @@
 
         private function runAction($action, array $parameters)
         {
-            error_log("Trying to load controller: " . print_r($action, true));
-
             $controller = null;
             $method = null;
 

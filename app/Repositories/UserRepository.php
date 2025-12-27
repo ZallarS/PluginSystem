@@ -28,10 +28,7 @@ class UserRepository
                     return User::createFromArray($data);
                 }
             } catch (PDOException $e) {
-                // В режиме debug логируем
-                if (env('APP_DEBUG', false)) {
-                    error_log("UserRepository DB error: " . $e->getMessage());
-                }
+
             }
         }
 
@@ -57,9 +54,7 @@ class UserRepository
                     return User::createFromArray($data);
                 }
             } catch (PDOException $e) {
-                if (env('APP_DEBUG', false)) {
-                    error_log("UserRepository DB error: " . $e->getMessage());
-                }
+
             }
         }
 
@@ -127,9 +122,7 @@ class UserRepository
                 return $result;
             }
         } catch (PDOException $e) {
-            if (env('APP_DEBUG', false)) {
-                error_log("UserRepository: Error saving user: " . $e->getMessage());
-            }
+
             return false;
         }
     }
@@ -165,9 +158,7 @@ class UserRepository
                 $this->save($admin);
             }
         } catch (PDOException $e) {
-            if (env('APP_DEBUG', false)) {
-                error_log("UserRepository: Error creating table: " . $e->getMessage());
-            }
+
         }
     }
 }

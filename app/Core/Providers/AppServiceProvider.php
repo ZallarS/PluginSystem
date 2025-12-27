@@ -89,7 +89,6 @@ class AppServiceProvider
 
         // Регистрируем глобальные функции как устаревшие
         $this->container->singleton('legacy_functions_registered', function() {
-            error_log("Глобальные функции helper'ов зарегистрированы");
             return true;
         });
     }
@@ -150,7 +149,6 @@ class AppServiceProvider
             return $pdo;
 
         } catch (\PDOException $e) {
-            error_log("Failed to create PDO connection: " . $e->getMessage());
             return null;
         }
     }

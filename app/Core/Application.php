@@ -35,20 +35,18 @@ class Application
         $this->initRouter();
         $this->initPlugins();
 
-        // Выводим только один раз
-        if (self::$instance === $this) {
-            error_log("Application initialized with DI container");
-        }
     }
 
     private function bootstrap(): void
     {
+        
         // Регистрируем сервисы через провайдер
         $provider = new AppServiceProvider($this->container);
         $provider->register();
 
         // Инициализируем хук-менеджер
         $this->initHookManager();
+
     }
 
     private function initHookManager(): void
@@ -129,17 +127,14 @@ class Application
     {
         if (class_exists('Plugins\PluginManager')) {
             try {
-                error_log("Application: Инициализация PluginManager");
                 
                 // Получаем PluginManager из контейнера DI
                 $this->pluginManager = $this->container->get(\Plugins\PluginManager::class);
                 
                 // Если не получилось через DI, используем getInstance()
                 if (!$this->pluginManager) {
-                    error_log("Application: PluginManager не найден в контейнере, используем getInstance()");
                     $this->pluginManager = \Plugins\PluginManager::getInstance();
                 } else {
-                    error_log("Application: PluginManager получен из контейнера DI");
                 }
                 
                 $this->pluginManager->loadSystemPlugins();
@@ -147,10 +142,8 @@ class Application
 
                 // Инициализируем виджеты плагинов
                 $this->initPluginWidgets($this->pluginManager->getActivePlugins());
-                
-                error_log("Application: PluginManager инициализирован и загрузил плагины");
+
             } catch (\Exception $e) {
-                error_log("Core: Error initializing plugins: " . $e->getMessage());
             }
         }
     }
@@ -169,7 +162,6 @@ class Application
                     }
                     $plugin->init();
                 } catch (\Exception $e) {
-                    error_log("Core: Error initializing plugin {$pluginName}: " . $e->getMessage());
                 }
             }
         }
@@ -186,7 +178,6 @@ class Application
 
     private function handleException(\Exception $e): void
     {
-        error_log("Application: Unhandled exception: " . $e->getMessage());
 
         http_response_code(500);
 
