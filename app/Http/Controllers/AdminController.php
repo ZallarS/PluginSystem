@@ -19,14 +19,13 @@ class AdminController extends Controller
         WidgetManager $widgetManager = null
     ) {
         parent::__construct($template, $authService, $request, $session);
-        $this->widgetManager = $widgetManager ?? app(WidgetManager::class);
+        $this->widgetManager = $widgetManager ?? throw new \Exception('WidgetManager должен быть внедрен через DI');
     }
 
     public function dashboard()
     {
         // Проверка аутентификации теперь в middleware
-        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
-        $widgetsGrid = $widgetManager->renderWidgetsGrid();
+        $widgetsGrid = $this->widgetManager->renderWidgetsGrid();
 
         $data = [
             'title' => 'Панель администратора',
@@ -52,8 +51,7 @@ class AdminController extends Controller
 
         // Используем SessionManager для сохранения виджетов
         try {
-            $session = app(SessionManager::class);
-            $session->set('user_widgets', $widgets);
+            $this->session->set('user_widgets', $widgets);
         } catch (\Exception $e) {
             // Fallback
             $_SESSION['user_widgets'] = $widgets;
@@ -76,7 +74,7 @@ class AdminController extends Controller
             return $this->json(['error' => 'Widget ID is required'], 400);
         }
 
-        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
+        $widgetManager = $this->widgetManager;
 
         if ($action === 'hide_widget') {
             $widgetManager->hideWidget($widgetId);
@@ -98,7 +96,7 @@ class AdminController extends Controller
     public function getHiddenWidgets()
     {
         try {
-            $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
+            $widgetManager = $this->widgetManager;
             $hiddenWidgets = $widgetManager->getHiddenWidgets();
 
             return $this->json([
@@ -113,7 +111,7 @@ class AdminController extends Controller
 
     public function getWidgetInfo($widgetId)
     {
-        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
+        $widgetManager = $this->widgetManager;
         $widget = $widgetManager->getWidget($widgetId);
 
         if ($widget) {
@@ -128,7 +126,7 @@ class AdminController extends Controller
 
     public function getWidgetHtml($widgetId)
     {
-        $widgetManager = app(\App\Core\Widgets\WidgetManager::class);
+        $widgetManager = $this->widgetManager;
         $widget = $widgetManager->getWidget($widgetId);
 
         if (!$widget) {

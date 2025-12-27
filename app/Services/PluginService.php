@@ -10,15 +10,11 @@ class PluginService
     private $pluginManager;
     private HookManager $hookManager;
 
-    public function __construct($pluginManager = null, HookManager $hookManager = null)
-    {
-        if ($pluginManager && class_exists('Plugins\PluginManager')) {
-            $this->pluginManager = $pluginManager;
-        } else {
-            $this->pluginManager = \Plugins\PluginManager::getInstance();
-        }
-
-        $this->hookManager = $hookManager ?? HookManager::getInstance();
+    public function __construct(
+        private \Plugins\PluginManager $pluginManager,
+        private HookManager $hookManager
+    ) {
+        error_log("PluginService: Создан экземпляр с PluginManager и HookManager");
     }
 
     public function getAllPlugins(): array

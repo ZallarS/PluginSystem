@@ -273,12 +273,14 @@ if (!function_exists('e')) {
         return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8', $doubleEncode);
     }
 }
+/**
+ * @deprecated Используйте внедрение зависимостей вместо этой функции
+ */
 if (!function_exists('app')) {
-    /**
-     * Получить экземпляр контейнера или конкретный сервис
-     */
     function app($abstract = null)
     {
+        error_log("Использование app() устарело. Используйте внедрение зависимостей.");
+        
         try {
             // Пытаемся получить Application
             $application = \App\Core\Application::getInstance();

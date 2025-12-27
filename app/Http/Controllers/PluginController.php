@@ -10,21 +10,24 @@ class PluginController extends Controller
 
     use Concerns\HasSession;
 
+    private \Plugins\PluginManager $pluginManager;
+
     public function __construct(
         \App\Core\View\TemplateEngine $template,
         ?\App\Services\AuthService $authService,
         \App\Http\Request $request,
-        ?SessionInterface $session = null
+        ?SessionInterface $session = null,
+        ?\Plugins\PluginManager $pluginManager = null
     ) {
         parent::__construct($template, $authService, $request, $session);
+        $this->pluginManager = $pluginManager ?? throw new \Exception('PluginManager должен быть внедрен через DI');
     }
 
 
     public function index()
     {
         // Проверка аутентификации теперь в middleware
-        $pluginManager = \Plugins\PluginManager::getInstance();
-        $plugins = $pluginManager->getPlugins();
+        $plugins = $this->pluginManager->getPlugins();
 
         return $this->view('admin.plugins', [
             'title' => 'Управление плагинами',
@@ -35,7 +38,7 @@ class PluginController extends Controller
     public function activate($pluginName)
     {
         // Проверка аутентификации и CSRF теперь в middleware
-        $pluginManager = \Plugins\PluginManager::getInstance();
+        $pluginManager = $this->pluginManager;
 
         if (!$pluginManager->pluginExists($pluginName)) {
             $this->flashMessage("Плагин {$pluginName} не найден", 'error');
@@ -57,7 +60,7 @@ class PluginController extends Controller
     public function deactivate($pluginName)
     {
         // Проверка аутентификации и CSRF теперь в middleware
-        $pluginManager = \Plugins\PluginManager::getInstance();
+        $pluginManager = $this->pluginManager;
 
         if (!$pluginManager->pluginExists($pluginName)) {
             $this->flashMessage("Плагин {$pluginName} не найден", 'error');

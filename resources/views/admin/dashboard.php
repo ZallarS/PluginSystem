@@ -719,8 +719,8 @@ $message = $message ?? 'Добро пожаловать в панель упра
 
             <!-- Сетка виджетов -->
             <?php
-            $widgetManager = \App\Core\Widgets\WidgetManager::getInstance();
-            echo $widgetManager->renderWidgetsGrid();
+            // Виджеты теперь передаются через контроллер
+            echo $widgetsGrid;
             ?>
 
             <!-- Панель восстановления скрытых виджетов -->

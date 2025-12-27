@@ -1,21 +1,7 @@
 <?php
-// Подключаем менеджер плагинов
-use Plugins\PluginManager;
-
-// Получаем экземпляр менеджера плагинов
-$pluginManager = PluginManager::getInstance();
-$allPlugins = $pluginManager->getPlugins();
-$activePlugins = $pluginManager->getActivePlugins();
-
-// Обновляем статус активности в данных плагинов
-foreach ($allPlugins as $pluginName => &$pluginData) {
-    $pluginData['active'] = isset($activePlugins[$pluginName]);
-}
-unset($pluginData); // Разрываем ссылку
-
 // Устанавливаем значения по умолчанию для переменных
 $title = $title ?? 'Управление плагинами';
-$plugins = $allPlugins; // Используем обновленные данные плагинов
+// Плагины теперь передаются через контроллер
 ?>
 <!DOCTYPE html>
 <html lang="ru">
