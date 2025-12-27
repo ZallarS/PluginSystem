@@ -6,11 +6,34 @@ namespace App\Http\Controllers;
 use App\Core\Widgets\WidgetManager;
 use App\Core\Session\SessionInterface;
 
+/**
+ * AdminController class
+ *
+ * Handles the admin dashboard and widget management.
+ * Provides functionality for saving widget layouts
+ * and managing widget visibility.
+ *
+ * @package App\Http\Controllers
+ */
 class AdminController extends Controller
 {
     use Concerns\HasSession;
+    /**
+     * @var WidgetManager The widget manager instance
+     */
     private WidgetManager $widgetManager;
 
+
+    /**
+     * Create a new admin controller instance.
+     *
+     * @param \App\Core\View\TemplateEngine $template The template engine
+     * @param \App\Services\AuthService|null $authService The authentication service
+     * @param \App\Http\Request $request The request object
+     * @param SessionInterface|null $session The session interface (optional)
+     * @param WidgetManager|null $widgetManager The widget manager (optional, will throw exception if null)
+     * @throws \Exception If widget manager is not provided
+     */
     public function __construct(
         \App\Core\View\TemplateEngine $template,
         ?\App\Services\AuthService $authService,
@@ -23,6 +46,14 @@ class AdminController extends Controller
         $this->widgetManager = $widgetManager ?? throw new \Exception('WidgetManager должен быть внедрен через DI');
     }
 
+    /**
+     * Display the admin dashboard.
+     *
+     * Shows the main admin interface with all widgets
+     * and their current layout.
+     *
+     * @return \App\Http\Response The response with the dashboard view
+     */
     public function dashboard()
     {
         
@@ -38,6 +69,13 @@ class AdminController extends Controller
         return $this->view('admin.dashboard', $data);
     }
 
+    /**
+     * Save the widget layout.
+     *
+     * Saves the current widget arrangement to the user's session.
+     *
+     * @return \App\Http\Response The JSON response with the result
+     */
     public function saveWidgets()
     {
         
@@ -63,6 +101,13 @@ class AdminController extends Controller
         return $this->json(['success' => true, 'message' => 'Настройки виджетов сохранены']);
     }
 
+    /**
+     * Toggle a widget's visibility.
+     *
+     * Shows or hides a widget based on the specified action.
+     *
+     * @return \App\Http\Response The JSON response with the result
+     */
     public function toggleWidget()
     {
 
@@ -99,6 +144,14 @@ class AdminController extends Controller
         return $this->json(['error' => 'Invalid action'], 400);
     }
 
+    /**
+     * Get the list of hidden widgets.
+     *
+     * Returns information about widgets that are currently
+     * hidden from the dashboard.
+     *
+     * @return \App\Http\Response The JSON response with hidden widgets
+     */
     public function getHiddenWidgets()
     {
         try {
@@ -114,6 +167,14 @@ class AdminController extends Controller
         }
     }
 
+    /**
+     * Get information about a specific widget.
+     *
+     * Returns detailed information about the specified widget.
+     *
+     * @param string $widgetId The ID of the widget
+     * @return \App\Http\Response The JSON response with widget information
+     */
     public function getWidgetInfo($widgetId)
     {
         $widgetManager = $this->widgetManager;
@@ -129,6 +190,15 @@ class AdminController extends Controller
         return $this->json(['error' => 'Widget not found'], 404);
     }
 
+    /**
+     * Get the HTML content of a widget.
+     *
+     * Renders the specified widget and returns its HTML content
+     * along with basic information.
+     *
+     * @param string $widgetId The ID of the widget
+     * @return \App\Http\Response The JSON response with widget HTML and info
+     */
     public function getWidgetHtml($widgetId)
     {
         $widgetManager = $this->widgetManager;

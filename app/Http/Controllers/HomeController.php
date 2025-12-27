@@ -3,8 +3,24 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+/**
+ * HomeController class
+ *
+ * Handles the home page of the application.
+ * Displays the main landing page with system features.
+ *
+ * @package App\Http\Controllers
+ */
 class HomeController extends Controller
 {
+    /**
+     * Create a new home controller instance.
+     *
+     * @param \App\Core\View\TemplateEngine $template The template engine
+     * @param \App\Services\AuthService|null $authService The authentication service
+     * @param \App\Http\Request $request The request object
+     * @param \App\Core\Session\SessionInterface|null $session The session interface (optional)
+     */
     public function __construct(
         \App\Core\View\TemplateEngine $template,
         ?\App\Services\AuthService $authService,
@@ -14,6 +30,14 @@ class HomeController extends Controller
         parent::__construct($template, $authService, $request, $session);
     }
 
+    /**
+     * Handle the home page request.
+     *
+     * Displays the main landing page with information
+     * about the system and its features.
+     *
+     * @return \App\Http\Response The response with the rendered view
+     */
     public function index()
     {
         $data = [

@@ -5,14 +5,47 @@ namespace Plugins;
 use PDO;
 use PDOException;
 
+/**
+ * PluginManager class
+ *
+ * Manages the loading, activation, and deactivation of plugins.
+ * Handles plugin lifecycle and maintains the state of active plugins.
+ *
+ * @package Plugins
+ */
 class PluginManager
 {
+    /**
+     * @var self|null The singleton instance
+     */
     private static $instance;
+
+    /**
+     * @var array The loaded plugins with their configurations
+     */
     private $plugins = [];
+
+    /**
+     * @var array The active plugins with their instances
+     */
     private $activePlugins = [];
+
+    /**
+     * @var string The directory path for plugins
+     */
     private $pluginsDir;
+
+    /**
+     * @var PDO|null The database connection
+     */
     private $db;
 
+
+    /**
+     * Get the singleton instance of the plugin manager.
+     *
+     * @return self The plugin manager instance
+     */
     public static function getInstance()
     {
         if (self::$instance === null) {
@@ -21,6 +54,12 @@ class PluginManager
         return self::$instance;
     }
 
+    /**
+     * Create a new plugin manager instance.
+     *
+     * Initializes the plugins directory, database connection,
+     * and loads the list of active plugins.
+     */
     public function __construct()
     {
         $this->pluginsDir = $this->getPluginsDirectory();
@@ -28,6 +67,14 @@ class PluginManager
         $this->loadActivePluginsFromDatabase();
     }
 
+    /**
+     * Load system plugins.
+     *
+     * Loads built-in system plugins that are required for
+     * core functionality.
+     *
+     * @return bool True if system plugin was loaded successfully
+     */
     public function loadSystemPlugins()
     {
         $systemPluginsPath = dirname(__DIR__) . '/plugins/SystemWidgets';
@@ -61,6 +108,15 @@ class PluginManager
         return false;
     }
 
+    /**
+     * Initialize the database connection.
+     *
+     * Establishes a connection to the database using configuration
+     * from the database.php file. Falls back to file storage if
+     * database is unavailable.
+     *
+     * @return void
+     */
     private function initDatabase()
     {
         try {
@@ -83,6 +139,13 @@ class PluginManager
         }
     }
 
+    /**
+     * Create the plugins table if it doesn't exist.
+     *
+     * Creates the database table to store active plugins information.
+     *
+     * @return void
+     */
     private function createPluginsTable()
     {
         if (!$this->db) {
@@ -101,9 +164,18 @@ class PluginManager
             $this->db->exec($sql);
 
         } catch (PDOException $e) {
+            // Log error or handle appropriately
         }
     }
 
+    /**
+     * Load active plugins from the database.
+     *
+     * Populates the activePlugins array with plugin names
+     * from the database storage.
+     *
+     * @return void
+     */
     private function loadActivePluginsFromDatabase()
     {
         if ($this->db) {
@@ -126,6 +198,14 @@ class PluginManager
         }
     }
 
+    /**
+     * Load all available plugins from the plugins directory.
+     *
+     * Scans the plugins directory, reads plugin.json files,
+     * checks requirements, and loads plugin configurations.
+     *
+     * @return int The number of loaded plugins
+     */
     public function loadPlugins()
     {
 
@@ -191,6 +271,15 @@ class PluginManager
         return count($this->plugins);
     }
 
+    /**
+     * Check if the plugin meets all requirements.
+     *
+     * Verifies that the current environment meets the
+     * requirements specified in the plugin configuration.
+     *
+     * @param array $config The plugin configuration
+     * @return bool True if all requirements are met
+     */
     private function checkRequirements($config)
     {
         if (isset($config['requires'])) {
@@ -209,6 +298,15 @@ class PluginManager
         return true;
     }
 
+    /**
+     * Load a plugin instance by name.
+     *
+     * Requires the plugin file, creates an instance of the plugin
+     * class, and initializes it.
+     *
+     * @param string $pluginName The plugin name
+     * @return bool True if the plugin instance was loaded successfully
+     */
     private function loadPluginInstance($pluginName)
     {
         if (!isset($this->plugins[$pluginName])) {
@@ -259,6 +357,15 @@ class PluginManager
         }
     }
 
+    /**
+     * Activate a plugin.
+     *
+     * Loads the plugin instance, calls its activate method,
+     * and stores it in the active plugins list.
+     *
+     * @param string $pluginName The plugin name to activate
+     * @return bool True if the plugin was activated successfully
+     */
     public function activatePlugin($pluginName)
     {
         if (!isset($this->plugins[$pluginName])) {
@@ -294,7 +401,6 @@ class PluginManager
                 if (class_exists($className)) {
                     $pluginInstance = new $className();
                     break;
-                } else {
                 }
             }
 
@@ -325,6 +431,15 @@ class PluginManager
         }
     }
 
+    /**
+     * Deactivate a plugin.
+     *
+     * Calls the plugin's deactivate method, removes it from
+     * the active plugins list, and updates the database.
+     *
+     * @param string $pluginName The plugin name to deactivate
+     * @return bool True if the plugin was deactivated successfully
+     */
     public function deactivatePlugin($pluginName)
     {
         if (!isset($this->plugins[$pluginName])) {
@@ -343,6 +458,15 @@ class PluginManager
         return true;
     }
 
+    /**
+     * Save an active plugin to the database.
+     *
+     * Stores the plugin name in the database to persist
+     * its active state between application restarts.
+     *
+     * @param string $pluginName The plugin name
+     * @return bool True if the plugin was saved successfully
+     */
     private function saveActivePluginToDatabase($pluginName)
     {
         if (!$this->db) {
@@ -358,6 +482,15 @@ class PluginManager
         }
     }
 
+    /**
+     * Remove an active plugin from the database.
+     *
+     * Removes the plugin name from the database to persist
+     * its inactive state between application restarts.
+     *
+     * @param string $pluginName The plugin name
+     * @return bool True if the plugin was removed successfully
+     */
     private function removeActivePluginFromDatabase($pluginName)
     {
         if (!$this->db) {
@@ -373,6 +506,14 @@ class PluginManager
         }
     }
 
+    /**
+     * Get the plugins directory path.
+     *
+     * Determines the correct path to the plugins directory
+     * by checking multiple possible locations.
+     *
+     * @return string The plugins directory path
+     */
     private function getPluginsDirectory(): string
     {
         $possiblePaths = [
@@ -389,6 +530,14 @@ class PluginManager
         return base_path('plugins/');
     }
 
+    /**
+     * Get all loaded plugins.
+     *
+     * Returns the complete list of plugins with their
+     * configurations and active status.
+     *
+     * @return array The plugins array
+     */
     public function getPlugins()
     {
 
@@ -400,16 +549,39 @@ class PluginManager
         return $this->plugins;
     }
 
+    /**
+     * Get all active plugins.
+     *
+     * Returns the list of currently active plugins with
+     * their instances.
+     *
+     * @return array The active plugins array
+     */
     public function getActivePlugins()
     {
         return $this->activePlugins;
     }
 
+    /**
+     * Get a specific active plugin instance.
+     *
+     * @param string $name The plugin name
+     * @return object|null The plugin instance or null if not found
+     */
     public function getPlugin($name)
     {
         return $this->activePlugins[$name] ?? null;
     }
 
+    /**
+     * Check if a plugin is active.
+     *
+     * Checks multiple sources (memory, configuration, database)
+     * to determine if a plugin is currently active.
+     *
+     * @param string $name The plugin name
+     * @return bool True if the plugin is active
+     */
     public function isPluginActive($name)
     {
         // Сначала проверяем в массиве активных плагинов (учитываем и null и объект)
@@ -432,22 +604,42 @@ class PluginManager
 
                 return $isActive;
             } catch (PDOException $e) {
+                // Log error or handle appropriately
             }
         }
 
         return false;
     }
 
+    /**
+     * Check if a plugin exists.
+     *
+     * @param string $name The plugin name
+     * @return bool True if the plugin exists in the system
+     */
     public function pluginExists($name)
     {
         return isset($this->plugins[$name]);
     }
 
+    /**
+     * Get plugin information.
+     *
+     * @param string $name The plugin name
+     * @return array|null The plugin configuration or null if not found
+     */
     public function getPluginInfo($name)
     {
         return $this->plugins[$name] ?? null;
     }
 
+    /**
+     * Clear all active plugins.
+     *
+     * Removes all active plugins from memory and the database.
+     *
+     * @return void
+     */
     public function clearActivePlugins()
     {
         $this->activePlugins = [];
@@ -456,9 +648,18 @@ class PluginManager
             try {
                 $this->db->exec("DELETE FROM active_plugins");
             } catch (PDOException $e) {
+                // Log error or handle appropriately
             }
         }
     }
+    /**
+     * Reload active plugins.
+     *
+     * Clears the current active plugins and reloads them
+     * from the database, creating new instances.
+     *
+     * @return void
+     */
     public function reloadActivePlugins()
     {
         $this->activePlugins = [];

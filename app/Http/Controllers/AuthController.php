@@ -8,10 +8,26 @@ use App\Http\Request;
 use App\Http\Response;
 use App\Core\Session\SessionInterface;
 
+/**
+ * AuthController class
+ *
+ * Handles user authentication including login, logout,
+ * and quick login functionality.
+ *
+ * @package App\Http\Controllers
+ */
 class AuthController extends Controller
 {
     use Concerns\HasSession;
 
+    /**
+     * Create a new authentication controller instance.
+     *
+     * @param \App\Core\View\TemplateEngine $template The template engine
+     * @param AuthService|null $authService The authentication service
+     * @param Request $request The request object
+     * @param SessionInterface|null $session The session interface (optional)
+     */
     public function __construct(
         \App\Core\View\TemplateEngine $template,
         ?AuthService $authService,
@@ -21,6 +37,14 @@ class AuthController extends Controller
         parent::__construct($template, $authService, $request, $session);
     }
 
+    /**
+     * Handle the login request.
+     *
+     * Displays the login form and processes login attempts.
+     * Supports both normal and fallback login forms.
+     *
+     * @return \App\Http\Response The response with the login form or redirect
+     */
     public function login()
     {
 
@@ -67,7 +91,15 @@ class AuthController extends Controller
     }
 
     /**
-     * Простая форма логина как fallback
+     * Show a simple login form as fallback.
+     *
+     * Displays a basic login form when the template engine
+     * fails to render the normal login form.
+     *
+     * @param string|null $error The error message
+     * @param array $errors The validation errors
+     * @param string $csrfToken The CSRF token
+     * @return Response The response with the simple login form
      */
     private function showSimpleLoginForm(?string $error, array $errors, string $csrfToken): Response
     {
@@ -127,6 +159,13 @@ class AuthController extends Controller
         return new Response($html);
     }
 
+    /**
+     * Handle the logout request.
+     *
+     * Logs out the current user and redirects to the home page.
+     *
+     * @return Response The response with the logout confirmation
+     */
     public function logout(): Response
     {
         if ($this->authService) {
@@ -139,6 +178,14 @@ class AuthController extends Controller
         return $this->redirect('/');
     }
 
+    /**
+     * Handle the quick login request.
+     *
+     * Allows quick login for development environments only.
+     * Includes security checks to prevent unauthorized access.
+     *
+     * @return Response The response with the quick login result
+     */
     public function quickLogin(): Response
     {
         // Быстрый вход ТОЛЬКО для локальной разработки

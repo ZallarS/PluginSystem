@@ -8,8 +8,19 @@
     use App\Http\Response;
     use App\Http\Middleware\MiddlewareInterface;
 
+    /**
+     * Router class
+     *
+     * Handles routing of HTTP requests to appropriate controllers and actions.
+     * Supports route groups, middleware, and flexible route definitions.
+     *
+     * @package App\Core\Routing
+     */
     class Router
     {
+        /**
+         * @var array<string, array<string>> The middleware groups
+         */
         private array $middlewareGroups = [
             'web' => [
                 \App\Http\Middleware\StartSession::class,
@@ -26,47 +37,120 @@
             ]
         ];
 
+        /**
+         * @var array<Route> The registered routes
+         */
         private array $routes = [];
+
+        /**
+         * @var Route|null The currently matched route
+         */
         private ?Route $currentRoute = null;
+
+        /**
+         * @var array The middleware for the current route
+         */
         private array $routeMiddleware = [];
+
+        /**
+         * @var array The attributes for the current route group
+         */
         private array $groupAttributes = [];
+
+        /**
+         * @var ControllerFactory The controller factory instance
+         */
         private ControllerFactory $controllerFactory;
 
+        /**
+         * Create a new router instance.
+         *
+         * @param ControllerFactory $controllerFactory The controller factory
+         */
         public function __construct(ControllerFactory $controllerFactory)
         {
             $this->controllerFactory = $controllerFactory;
         }
 
+        /**
+         * Register a GET route.
+         *
+         * @param string $uri The URI pattern
+         * @param mixed $action The action to execute
+         * @return void
+         */
         public function get($uri, $action)
         {
             $this->addRoute('GET', $uri, $action);
         }
 
+        /**
+         * Register a POST route.
+         *
+         * @param string $uri The URI pattern
+         * @param mixed $action The action to execute
+         * @return void
+         */
         public function post($uri, $action)
         {
             $this->addRoute('POST', $uri, $action);
         }
 
+        /**
+         * Register a PUT route.
+         *
+         * @param string $uri The URI pattern
+         * @param mixed $action The action to execute
+         * @return void
+         */
         public function put($uri, $action)
         {
             $this->addRoute('PUT', $uri, $action);
         }
 
+        /**
+         * Register a PATCH route.
+         *
+         * @param string $uri The URI pattern
+         * @param mixed $action The action to execute
+         * @return void
+         */
         public function patch($uri, $action)
         {
             $this->addRoute('PATCH', $uri, $action);
         }
 
+        /**
+         * Register a DELETE route.
+         *
+         * @param string $uri The URI pattern
+         * @param mixed $action The action to execute
+         * @return void
+         */
         public function delete($uri, $action)
         {
             $this->addRoute('DELETE', $uri, $action);
         }
 
+        /**
+         * Register a route for any HTTP method.
+         *
+         * @param string $uri The URI pattern
+         * @param mixed $action The action to execute
+         * @return void
+         */
         public function any($uri, $action)
         {
             $this->addRoute(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], $uri, $action);
         }
 
+        /**
+         * Define a route group with shared attributes.
+         *
+         * @param array $attributes The group attributes (prefix, middleware, etc.)
+         * @param callable $callback The callback to register routes
+         * @return void
+         */
         public function group(array $attributes, callable $callback): void
         {
             $previousGroupAttributes = $this->groupAttributes;
@@ -84,12 +168,26 @@
             $this->groupAttributes = $previousGroupAttributes;
         }
 
+        /**
+         * Set middleware for the next route registration.
+         *
+         * @param array|string $middleware The middleware to apply
+         * @return self The router instance for method chaining
+         */
         public function middleware(array|string $middleware): self
         {
             $this->routeMiddleware = is_array($middleware) ? $middleware : [$middleware];
             return $this;
         }
 
+        /**
+         * Add a route to the router.
+         *
+         * @param string|array $method The HTTP method(s) for the route
+         * @param string $uri The URI pattern
+         * @param mixed $action The action to execute
+         * @return void
+         */
         private function addRoute($method, $uri, $action)
         {
             // Применяем префикс группы
@@ -106,6 +204,14 @@
             }
         }
 
+        /**
+         * Dispatch the current request to the appropriate route.
+         *
+         * Matches the current request against registered routes and
+         * executes the corresponding action through the middleware pipeline.
+         *
+         * @return void
+         */
         public function dispatch()
         {
             $requestMethod = $_SERVER['REQUEST_METHOD'];
@@ -124,6 +230,13 @@
             $this->show404();
         }
 
+        /**
+         * Get the current URI from the request.
+         *
+         * Removes the script name from the URI if it's not in the document root.
+         *
+         * @return string The current URI
+         */
         private function getCurrentUri()
         {
             $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -138,6 +251,12 @@
             return $uri ?: '/';
         }
 
+        /**
+         * Execute the given route through the middleware pipeline.
+         *
+         * @param Route $route The route to execute
+         * @return void
+         */
         private function executeRoute(Route $route)
         {
             $action = $route->getAction();
@@ -174,6 +293,17 @@
             }
         }
 
+        /**
+         * Run the action for the given route.
+         *
+         * Supports various action formats: [Controller::class, 'method'],
+         * 'Controller@method', and callable functions.
+         *
+         * @param mixed $action The action to execute
+         * @param array $parameters The route parameters
+         * @return mixed The result of the action
+         * @throws \Exception If the action cannot be executed
+         */
         private function runAction($action, array $parameters)
         {
             $controller = null;
@@ -217,6 +347,15 @@
             }
         }
 
+        /**
+         * Get the middleware for the given route.
+         *
+         * Combines middleware from the route group and resolves
+         * middleware group names to actual middleware classes.
+         *
+         * @param Route $route The route
+         * @return array The middleware array
+         */
         private function getRouteMiddleware(Route $route): array
         {
             $middleware = [];
@@ -242,11 +381,25 @@
             }, $middleware);
         }
 
+        /**
+         * Create a controller instance.
+         *
+         * @param string $controllerClass The controller class name
+         * @return object The controller instance
+         */
         private function createController(string $controllerClass)
         {
             return $this->controllerFactory->create($controllerClass);
         }
 
+        /**
+         * Show a 404 error page.
+         *
+         * Displays the custom 404 page if it exists, otherwise
+         * shows a simple error message.
+         *
+         * @return void
+         */
         private function show404()
         {
             http_response_code(404);
@@ -260,16 +413,31 @@
             exit;
         }
 
+        /**
+         * Get the currently matched route.
+         *
+         * @return Route|null The current route, or null if no route matched
+         */
         public function getCurrentRoute(): ?Route
         {
             return $this->currentRoute;
         }
 
+        /**
+         * Get all registered routes.
+         *
+         * @return array The routes
+         */
         public function getRoutes(): array
         {
             return $this->routes;
         }
 
+        /**
+         * Get the middleware groups.
+         *
+         * @return array The middleware groups
+         */
         public function getMiddlewareGroups(): array
         {
             return $this->middlewareGroups;

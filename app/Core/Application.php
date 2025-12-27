@@ -7,18 +7,52 @@ use App\Core\Container\Container;
 use App\Core\Providers\AppServiceProvider;
 use App\Core\Routing\Router;
 
+/**
+ * Application class
+ *
+ * The main application class that bootstraps and runs the MVC system.
+ * Manages the container, routing, plugins, and other core components.
+ *
+ * @package App\Core
+ */
 class Application
 {
+    /**
+     * @var self|null The singleton instance
+     */
     private static $instance;
+
+    /**
+     * @var Container The dependency injection container
+     */
     private Container $container;
+
+    /**
+     * @var Router The routing component
+     */
     private Router $router;
+
+    /**
+     * @var \Plugins\PluginManager|null The plugin manager instance
+     */
     private $pluginManager;
 
+    /**
+     * Get the singleton instance of the application.
+     *
+     * @return self|null The application instance, or null if not initialized
+     */
     public static function getInstance(): ?self
     {
         return self::$instance;
     }
 
+    /**
+     * Create a new application instance.
+     *
+     * Initializes the container, bootstraps services, and sets up
+     * routing and plugins.
+     */
     public function __construct()
     {
         self::$instance = $this;
@@ -34,27 +68,43 @@ class Application
         // Инициализируем компоненты
         $this->initRouter();
         $this->initPlugins();
-
     }
 
+    /**
+     * Bootstrap the application services.
+     *
+     * Registers all application services through the service provider
+     * and initializes the hook manager.
+     */
     private function bootstrap(): void
     {
-        
         // Регистрируем сервисы через провайдер
         $provider = new AppServiceProvider($this->container);
         $provider->register();
 
         // Инициализируем хук-менеджер
         $this->initHookManager();
-
     }
 
+    /**
+     * Initialize the hook manager.
+     *
+     * Registers all default dashboard hooks.
+     */
     private function initHookManager(): void
     {
         $hookManager = HookManager::getInstance();
         $this->registerDashboardHooks($hookManager);
     }
 
+    /**
+     * Register default dashboard hooks.
+     *
+     * Registers all the default hooks used in the admin dashboard
+     * to allow plugins and components to extend functionality.
+     *
+     * @param HookManager $hookManager The hook manager instance
+     */
     private function registerDashboardHooks(HookManager $hookManager): void
     {
         $dashboardHooks = [
@@ -69,6 +119,12 @@ class Application
         }
     }
 
+    /**
+     * Initialize the router.
+     *
+     * Creates the router instance with the controller factory
+     * and loads the application routes.
+     */
     private function initRouter(): void
     {
         // Создаем ControllerFactory
@@ -78,6 +134,12 @@ class Application
         $this->loadRoutes();
     }
 
+    /**
+     * Load the application routes.
+     *
+     * Loads routes from web.php and api.php files if they exist,
+     * otherwise defines fallback routes.
+     */
     private function loadRoutes(): void
     {
         $webRoutesPath = dirname(__DIR__, 2) . '/routes/web.php';
@@ -100,6 +162,12 @@ class Application
         }
     }
 
+    /**
+     * Define fallback web routes.
+     *
+     * Defines default routes for the web interface when no
+     * custom routes file exists.
+     */
     private function defineFallbackWebRoutes(): void
     {
         $this->router->group(['middleware' => 'web'], function ($router) {
@@ -111,6 +179,11 @@ class Application
         });
     }
 
+    /**
+     * Define fallback API routes.
+     *
+     * Defines default API routes when no custom API routes file exists.
+     */
     private function defineFallbackApiRoutes(): void
     {
         $this->router->group([
@@ -123,18 +196,22 @@ class Application
         });
     }
 
+    /**
+     * Initialize the plugin system.
+     *
+     * Loads and initializes the plugin manager, system plugins,
+     * and active plugins. Also initializes plugin widgets.
+     */
     private function initPlugins(): void
     {
         if (class_exists('Plugins\PluginManager')) {
             try {
-                
                 // Получаем PluginManager из контейнера DI
                 $this->pluginManager = $this->container->get(\Plugins\PluginManager::class);
                 
                 // Если не получилось через DI, используем getInstance()
                 if (!$this->pluginManager) {
                     $this->pluginManager = \Plugins\PluginManager::getInstance();
-                } else {
                 }
                 
                 $this->pluginManager->loadSystemPlugins();
@@ -144,10 +221,19 @@ class Application
                 $this->initPluginWidgets($this->pluginManager->getActivePlugins());
 
             } catch (\Exception $e) {
+                // Log the error or handle it appropriately
             }
         }
     }
 
+    /**
+     * Initialize widgets for active plugins.
+     *
+     * Passes the widget manager to plugins that support it
+     * and calls their init method.
+     *
+     * @param array $activePlugins The array of active plugins
+     */
     private function initPluginWidgets(array $activePlugins): void
     {
         // Получаем WidgetManager из контейнера
@@ -162,11 +248,18 @@ class Application
                     }
                     $plugin->init();
                 } catch (\Exception $e) {
+                    // Log the error or handle it appropriately
                 }
             }
         }
     }
 
+    /**
+     * Run the application.
+     *
+     * Dispatches the router to handle the current request.
+     * Catches any exceptions and handles them appropriately.
+     */
     public function run(): void
     {
         try {
@@ -176,9 +269,16 @@ class Application
         }
     }
 
+    /**
+     * Handle application exceptions.
+     *
+     * Displays detailed error information in debug mode,
+     * otherwise shows a generic error page.
+     *
+     * @param \Exception $e The exception to handle
+     */
     private function handleException(\Exception $e): void
     {
-
         http_response_code(500);
 
         if (env('APP_DEBUG', false)) {
@@ -196,11 +296,21 @@ class Application
         }
     }
 
+    /**
+     * Get the application's dependency injection container.
+     *
+     * @return Container The DI container instance
+     */
     public function getContainer(): Container
     {
         return $this->container;
     }
 
+    /**
+     * Get the application's router.
+     *
+     * @return Router The router instance
+     */
     public function getRouter(): Router
     {
         return $this->router;

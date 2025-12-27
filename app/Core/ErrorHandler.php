@@ -3,11 +3,33 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+/**
+ * ErrorHandler class
+ *
+ * Handles PHP errors and exceptions in the application.
+ * Logs errors and displays appropriate error pages.
+ *
+ * @package App\Core
+ */
 class ErrorHandler
 {
+    /**
+     * @var Logger The logger instance
+     */
     private Logger $logger;
+
+    /**
+     * @var bool Whether debug mode is enabled
+     */
     private bool $debug;
 
+
+    /**
+     * Create a new error handler instance.
+     *
+     * @param Logger $logger The logger instance
+     * @param bool $debug Whether debug mode is enabled
+     */
     public function __construct(Logger $logger, bool $debug = false)
     {
         $this->logger = $logger;
@@ -19,6 +41,17 @@ class ErrorHandler
         }
     }
 
+    /**
+     * Handle a PHP error.
+     *
+     * Logs the error and optionally throws an exception in debug mode.
+     *
+     * @param int $level The error level
+     * @param string $message The error message
+     * @param string $file The file where the error occurred
+     * @param int $line The line number where the error occurred
+     * @return bool True to prevent PHP's internal error handler from running
+     */
     public function handleError(int $level, string $message, string $file = '', int $line = 0): bool
     {
         if (error_reporting() & $level) {
@@ -32,6 +65,14 @@ class ErrorHandler
         return true;
     }
 
+    /**
+     * Handle an uncaught exception.
+     *
+     * Logs the exception and displays an error page.
+     *
+     * @param \Throwable $e The uncaught exception
+     * @return void
+     */
     public function handleException(\Throwable $e): void
     {
         $this->logger->error($e->getMessage(), [

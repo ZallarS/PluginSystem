@@ -1,8 +1,20 @@
 <?php
 
 return [
+    /**
+     * Default database connection.
+     *
+     * Specifies which connection to use by default.
+     * Set to 'mysql' as the primary database driver.
+     */
     'default' => 'mysql',
 
+    /**
+     * Database connections.
+     *
+     * Configuration for all available database connections.
+     * Currently only MySQL is configured.
+     */
     'connections' => [
         'mysql' => [
             'driver' => 'mysql',

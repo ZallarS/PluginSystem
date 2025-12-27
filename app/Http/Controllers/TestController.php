@@ -5,10 +5,26 @@ namespace App\Http\Controllers;
 
 use App\Core\Session\SessionInterface;
 
+/**
+ * TestController class
+ *
+ * A simple controller for testing system functionality.
+ * Displays system status and available actions.
+ *
+ * @package App\Http\Controllers
+ */
 class TestController extends Controller
 {
     use Concerns\HasSession;
 
+    /**
+     * Create a new test controller instance.
+     *
+     * @param \App\Core\View\TemplateEngine $template The template engine
+     * @param \App\Services\AuthService|null $authService The authentication service
+     * @param \App\Http\Request $request The request object
+     * @param SessionInterface|null $session The session interface (optional)
+     */
     public function __construct(
         \App\Core\View\TemplateEngine $template,
         ?\App\Services\AuthService $authService,
@@ -18,6 +34,14 @@ class TestController extends Controller
         parent::__construct($template, $authService, $request, $session);
     }
 
+    /**
+     * Display the system test page.
+     *
+     * Shows the current system status including authentication,
+     * template engine, and session status, along with navigation links.
+     *
+     * @return void This method outputs HTML directly
+     */
     public function index()
     {
         echo "<h1>✅ System Test - ВСЕ РАБОТАЕТ!</h1>";

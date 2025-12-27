@@ -1,88 +1,66 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Application Environment
-    |--------------------------------------------------------------------------
-    |
-    | This value determines the "environment" your application is currently
-    | running in. This may determine how you prefer to configure various
-    | services the application utilizes.
-    |
-    */
+    /**
+     * Application environment.
+     *
+     * Determines the current environment (production, development, testing, etc.).
+     * Used to configure services differently based on environment.
+     */
     'env' => env('APP_ENV', 'production'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Debug Mode
-    |--------------------------------------------------------------------------
-    |
-    | When your application is in debug mode, detailed error messages with
-    | stack traces will be shown on every error that occurs within your
-    | application. If disabled, a simple generic error page is shown.
-    |
-    */
+    /**
+     * Application debug mode.
+     *
+     * When enabled, detailed error messages with stack traces are shown.
+     * When disabled, generic error pages are shown for security.
+     */
     'debug' => env('APP_DEBUG', false),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application URL
-    |--------------------------------------------------------------------------
-    |
-    | This URL is used by the console to properly generate URLs when using
-    | the Artisan command line tool. You should set this to the root of
-    | your application so that it is used when running Artisan tasks.
-    |
-    */
+    /**
+     * Application URL.
+     *
+     * Used by console commands to generate proper URLs.
+     * Should be set to the root URL of the application.
+     */
     'url' => env('APP_URL', 'http://localhost'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Timezone
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. We have gone
-    | ahead and set this to a sensible default for you out of the box.
-    |
-    */
+    /**
+     * Application timezone.
+     *
+     * The default timezone used by PHP date and datetime functions.
+     * Set to Moscow time as the default.
+     */
     'timezone' => 'Europe/Moscow',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Widget Cache Settings
-    |--------------------------------------------------------------------------
-    |
-    | Cache settings for widgets rendering.
-    |
-    */
+    /**
+     * Widget cache settings.
+     *
+     * Configuration for caching widget rendering to improve performance.
+     * Includes enabling/disabling cache and setting time-to-live.
+     */
     'widget_cache' => [
         'enabled' => env('WIDGET_CACHE_ENABLED', true),
         'ttl' => env('WIDGET_CACHE_TTL', 300),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Session Settings
-    |--------------------------------------------------------------------------
-    |
-    | Session configuration for the application.
-    |
-    */
+    /**
+     * Session settings.
+     *
+     * Configuration for PHP session handling including
+     * lifetime and cookie name.
+     */
     'session' => [
         'lifetime' => env('SESSION_LIFETIME', 120),
         'cookie' => env('SESSION_COOKIE', 'mvc_session'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Database Settings
-    |--------------------------------------------------------------------------
-    |
-    | Database configuration for the application.
-    |
-    */
+    /**
+     * Database settings.
+     *
+     * Configuration for database connections including
+     * default connection and connection details.
+     */
     'database' => [
         'default' => env('DB_CONNECTION', 'mysql'),
         'connections' => [

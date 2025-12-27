@@ -4,10 +4,26 @@
 
     namespace App\Core\Widgets;
 
+    /**
+     * WidgetRenderer class
+     *
+     * Renders widgets and widget grids as HTML.
+     * Implements the WidgetRendererInterface contract.
+     *
+     * @package App\Core\Widgets
+     */
     class WidgetRenderer implements WidgetRendererInterface
     {
+        /**
+         * Render a single widget as HTML.
+         *
+         * @param string $widgetId The widget identifier
+         * @param array $widget The widget configuration
+         * @return string The rendered HTML
+         */
         public function render(string $widgetId, array $widget): string
         {
+            // Execute callable content or use raw content
             $content = is_callable($widget['content']) ? $widget['content']() : $widget['content'];
 
             return sprintf(
@@ -34,6 +50,12 @@
             );
         }
 
+        /**
+         * Render a grid of widgets as HTML.
+         *
+         * @param array $widgets The widgets to render
+         * @return string The rendered HTML grid
+         */
         public function renderGrid(array $widgets): string
         {
             $html = '<div class="dashboard-widgets-grid">';
