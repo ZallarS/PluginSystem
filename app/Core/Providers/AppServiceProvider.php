@@ -70,9 +70,9 @@ class AppServiceProvider
         });
 
         // Widget Storage
-        $this->container->singleton(\App\Core\Widgets\WidgetStorageInterface::class, function($container) {
+        $this->container->singleton(WidgetStorageInterface::class, function($container) {
             $session = $container->get(SessionInterface::class);
-            return new \App\Core\Widgets\SessionWidgetStorage($session);
+            return new SessionWidgetStorage($session);
         });
 
         // Widget Renderer

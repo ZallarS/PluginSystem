@@ -195,10 +195,8 @@ class Container implements ContainerInterface
     {
         if (isset($this->bindings[$abstract])) {
             $concrete = $this->bindings[$abstract]['concrete'];
-            // If concrete is a closure, resolve it
-            if ($concrete instanceof \Closure) {
-                return $concrete($this);
-            }
+            // НЕ вызываем замыкание здесь - просто возвращаем его
+            // Метод build() сам вызовет замыкание при необходимости
             return $concrete;
         }
 

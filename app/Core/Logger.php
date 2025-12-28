@@ -37,7 +37,7 @@ class Logger
      */
     private function __construct()
     {
-        $this->logFile = dirname(__DIR__, 2) . '/storage/logs/app.log';
+        $this->logFile = storage_path('logs/app.log');
         $this->debugMode = env('APP_DEBUG', false);
 
         // Создаем директорию логов если ее нет

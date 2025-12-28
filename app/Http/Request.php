@@ -30,7 +30,7 @@ class Request
 
     public static function createFromGlobals(): self
     {
-        return new self();
+        return new self($_GET, $_POST, $_FILES, $_SERVER, $_COOKIE);
     }
 
     private function extractHeaders(array $server): array

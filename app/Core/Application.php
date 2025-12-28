@@ -60,7 +60,8 @@ class Application
         // Создаем контейнер
         $this->container = new Container();
 
-        // Загружаем хелперы (уже загружены в index.php)
+        // Проверяем основные шаблоны
+        $this->checkEssentialTemplates();
 
         // Регистрируем сервисы
         $this->bootstrap();
@@ -262,11 +263,33 @@ class Application
      */
     public function run(): void
     {
+        // Устанавливаем обработчики ошибок и исключений ДО запуска приложения
+        set_error_handler([$this, 'handleError']);
+        set_exception_handler([$this, 'handleException']);
+
         try {
             $this->router->dispatch();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->handleException($e);
         }
+    }
+
+    /**
+     * Handle PHP errors.
+     *
+     * @param int $level The error level
+     * @param string $message The error message
+     * @param string $file The file where the error occurred
+     * @param int $line The line number where the error occurred
+     * @return bool True to prevent PHP's internal error handler from running
+     */
+    public function handleError(int $level, string $message, string $file = '', int $line = 0): bool
+    {
+        if (error_reporting() & $level) {
+            throw new \ErrorException($message, 0, $level, $file, $line);
+        }
+
+        return true;
     }
 
     /**
@@ -277,23 +300,107 @@ class Application
      *
      * @param \Exception $e The exception to handle
      */
-    private function handleException(\Exception $e): void
+    private function handleException(\Throwable $e): void
     {
-        http_response_code(500);
-
-        if (env('APP_DEBUG', false)) {
-            echo "<h1>Application Error</h1>";
-            echo "<p><strong>" . htmlspecialchars($e->getMessage()) . "</strong></p>";
-            echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
-        } else {
-            $errorPage = dirname(__DIR__, 2) . '/resources/views/errors/500.php';
-            if (file_exists($errorPage)) {
-                include $errorPage;
-            } else {
-                echo "<h1>500 - Internal Server Error</h1>";
-                echo "<p>Произошла внутренняя ошибка сервера.</p>";
+        // Логируем ошибку
+        try {
+            if (class_exists(\App\Core\Logger::class)) {
+                $logger = \App\Core\Logger::getInstance();
+                $logger->error($e->getMessage(), [
+                    'exception' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
+                ]);
             }
+        } catch (\Throwable $logException) {
+            // Игнорируем ошибки логгирования
         }
+
+        // Отображаем красивую страницу ошибки
+        $this->showErrorPage($e);
+    }
+
+    /**
+     * Display a beautiful error page.
+     *
+     * @param \Throwable $e The exception
+     */
+    private function showErrorPage(\Throwable $e): void
+    {
+        // Устанавливаем заголовки только если они еще не отправлены
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/html; charset=utf-8');
+        }
+
+        // Пытаемся показать красивую страницу 500
+        $errorPage = dirname(__DIR__, 2) . '/resources/views/errors/500.php';
+        if (file_exists($errorPage)) {
+            // Передаем информацию об ошибке в шаблон
+            $debug = env('APP_DEBUG', false);
+            $title = '500 - Internal Server Error';
+            $message = 'Произошла внутренняя ошибка сервера.';
+
+            // Буферизируем вывод, чтобы перехватить любые ошибки при рендеринге
+            ob_start();
+            try {
+                include $errorPage;
+                $content = ob_get_clean();
+                echo $content;
+            } catch (\Throwable $templateError) {
+                ob_end_clean();
+                // Если даже шаблон ошибки не смог загрузиться, покажем простую страницу
+                $this->showFallbackErrorPage($e);
+            }
+        } else {
+            $this->showFallbackErrorPage($e);
+        }
+
+        exit(1);
+    }
+
+    /**
+     * Display a fallback error page when the main error template fails.
+     *
+     * @param \Throwable $e The exception
+     */
+    private function showFallbackErrorPage(\Throwable $e): void
+    {
+        $debug = env('APP_DEBUG', false);
+
+        echo '<!DOCTYPE html>';
+        echo '<html lang="ru">';
+        echo '<head>';
+        echo '<meta charset="UTF-8">';
+        echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
+        echo '<title>500 - Internal Server Error</title>';
+        echo '<style>';
+        echo 'body { font-family: Arial, sans-serif; background: #f8f9fa; padding: 50px; text-align: center; }';
+        echo '.error-container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }';
+        echo 'h1 { color: #dc3545; }';
+        echo 'pre { background: #f8f9fa; padding: 20px; border-radius: 5px; text-align: left; overflow: auto; }';
+        echo '</style>';
+        echo '</head>';
+        echo '<body>';
+        echo '<div class="error-container">';
+        echo '<h1>500 - Internal Server Error</h1>';
+        echo '<p>Произошла внутренняя ошибка сервера.</p>';
+
+        if ($debug) {
+            echo '<div style="margin-top: 30px; text-align: left;">';
+            echo '<h3>Debug Information:</h3>';
+            echo '<p><strong>' . htmlspecialchars($e->getMessage()) . '</strong></p>';
+            echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+            echo '</div>';
+        } else {
+            echo '<p>Пожалуйста, попробуйте позже или свяжитесь с администратором.</p>';
+            echo '<a href="/">Вернуться на главную</a>';
+        }
+
+        echo '</div>';
+        echo '</body>';
+        echo '</html>';
     }
 
     /**
@@ -314,5 +421,47 @@ class Application
     public function getRouter(): Router
     {
         return $this->router;
+    }
+
+    /**
+     * Check if essential templates exist.
+     *
+     * @return bool True if all essential templates exist
+     */
+    private function checkEssentialTemplates(): bool
+    {
+        $essentialTemplates = [
+            'home.index',
+            'auth.login',
+            'admin.dashboard',
+            'errors.404',
+            'errors.500'
+        ];
+
+        foreach ($essentialTemplates as $template) {
+            $path = $this->resolveTemplatePath($template);
+            if (!file_exists($path)) {
+                error_log("Warning: Essential template not found: {$template}");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolve template path for checking.
+     *
+     * @param string $template The template name
+     * @return string The full path
+     */
+    private function resolveTemplatePath(string $template): string
+    {
+        $template = str_replace('.', '/', $template);
+        if (!str_ends_with($template, '.php')) {
+            $template .= '.php';
+        }
+
+        return dirname(__DIR__, 2) . '/resources/views/' . $template;
     }
 }

@@ -5,57 +5,44 @@ require_once dirname(__DIR__) . '/bootstrap/environment.php';
 // Загружаем хелперы ДО настройки отображения ошибок
 require_once dirname(__DIR__) . '/bootstrap/helpers.php';
 
-// Инициализируем сессию и очищаем старые ключи
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Получаем значения окружения
+// Настройка отображения ошибок
 $appEnv = env('APP_ENV', 'production');
 $appDebug = env('APP_DEBUG', 'false') === 'true';
 
-// Настройка отображения ошибок в зависимости от среды
 if ($appDebug || $appEnv === 'development' || $appEnv === 'local') {
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
 } else {
-    ini_set('display_errors', 0);
-    ini_set('display_startup_errors', 0);
     error_reporting(0);
-
-    // Включаем логгирование ошибок
-    ini_set('log_errors', 1);
-    ini_set('error_log', __DIR__ . '/../storage/logs/error.log');
 }
 
 // Автозагрузчик Composer
 $autoloader = __DIR__ . '/../vendor/autoload.php';
 if (!file_exists($autoloader)) {
-    die('<h1>Composer не установлен</h1><p>Запустите: <code>composer install</code></p>');
+    // Простая страница ошибки вместо кучи кода
+    echo '<!DOCTYPE html>';
+    echo '<html><head><title>Composer не установлен</title></head>';
+    echo '<body style="font-family: Arial; padding: 40px; text-align: center;">';
+    echo '<h1>Composer не установлен</h1>';
+    echo '<p>Запустите: <code>composer install</code></p>';
+    echo '</body></html>';
+    exit;
 }
 
 require_once $autoloader;
+
+// Регистрируем глобальный обработчик ошибок
+App\Core\ErrorHandler::register();
+
+// Инициализируем сессию
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Запускаем приложение
 try {
     $app = new App\Core\Application();
     $app->run();
-} catch (Throwable $e) {
-
-    http_response_code(500);
-
-    if ($appDebug) {
-        echo "<h1>Application Error</h1>";
-        echo "<p><strong>" . htmlspecialchars($e->getMessage()) . "</strong></p>";
-        echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
-    } else {
-        $errorPage = __DIR__ . '/../resources/views/errors/500.php';
-        if (file_exists($errorPage)) {
-            include $errorPage;
-        } else {
-            echo "<h1>500 - Internal Server Error</h1>";
-            echo "<p>Произошла внутренняя ошибка сервера.</p>";
-        }
-    }
+} catch (\Throwable $e) {
+    // Если что-то пошло не так на самом высоком уровне
+    App\Core\ErrorHandler::handleException($e);
 }
