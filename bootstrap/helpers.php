@@ -266,19 +266,20 @@ if (!function_exists('has_filter')) {
         return $hookManager->hasFilter($filter);
     }
 }
+
 if (!function_exists('e')) {
     function e($value, $doubleEncode = true)
     {
         return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8', $doubleEncode);
     }
 }
+
 /**
  * @deprecated Используйте внедрение зависимостей вместо этой функции
  */
 if (!function_exists('app')) {
     function app($abstract = null)
     {
-
         try {
             // Пытаемся получить Application
             $application = \App\Core\Application::getInstance();
@@ -314,12 +315,14 @@ if (!function_exists('app')) {
         }
     }
 }
+
 if (!function_exists('auth')) {
     function auth()
     {
         return app(\App\Services\AuthService::class);
     }
 }
+
 if (!function_exists('db')) {
     /**
      * Получить PDO соединение
@@ -329,6 +332,7 @@ if (!function_exists('db')) {
         return app(PDO::class);
     }
 }
+
 if (!function_exists('view')) {
     function view($template, $data = [])
     {
@@ -336,6 +340,7 @@ if (!function_exists('view')) {
         return $engine->render($template, $data);
     }
 }
+
 if (!function_exists('config')) {
     function config($key = null, $default = null)
     {
@@ -351,5 +356,314 @@ if (!function_exists('config')) {
         }
 
         return $config->get($key, $default);
+    }
+}
+
+// ==================== LAYOUT SYSTEM ====================
+
+if (!function_exists('layout')) {
+    /**
+     * Set the layout for the current view.
+     *
+     * @param string $layout The layout name
+     * @return void
+     */
+    function layout(string $layout): void
+    {
+        $GLOBALS['_current_layout'] = $layout;
+    }
+}
+
+if (!function_exists('section')) {
+    /**
+     * Start a content section.
+     *
+     * @param string $name The section name
+     * @return void
+     */
+    function section(string $name): void
+    {
+        ob_start();
+        $GLOBALS['_current_section'] = $name;
+    }
+}
+
+if (!function_exists('endsection')) {
+    /**
+     * End a content section.
+     *
+     * @return void
+     */
+    function endsection(): void
+    {
+        $content = ob_get_clean();
+
+        if (isset($GLOBALS['_current_section'])) {
+            $name = $GLOBALS['_current_section'];
+
+            if (!isset($GLOBALS['_sections'])) {
+                $GLOBALS['_sections'] = [];
+            }
+            $GLOBALS['_sections'][$name] = $content;
+
+            unset($GLOBALS['_current_section']);
+        }
+    }
+}
+
+if (!function_exists('template_yield')) {
+    /**
+     * Render a section content.
+     *
+     * @param string $name The section name
+     * @param string $default Default content if section not defined
+     * @return void
+     */
+    function template_yield(string $name, string $default = ''): void
+    {
+        echo $GLOBALS['_sections'][$name] ?? $default;
+    }
+}
+
+if (!function_exists('include_partial')) {
+    /**
+     * Include a partial template.
+     *
+     * @param string $template The template to include
+     * @param array $data The data to pass to the template
+     * @return void
+     */
+    function include_partial(string $template, array $data = []): void
+    {
+        $engine = \App\Core\View\TemplateEngine::getInstance();
+        echo $engine->render($template, $data);
+    }
+}
+// ==================== SAFE TEMPLATE HELPERS ====================
+
+if (!function_exists('safe_view')) {
+    /**
+     * Render a template using SafeTemplateEngine.
+     *
+     * @param string $template The template name
+     * @param array $data The template data
+     * @return string Rendered content
+     */
+    function safe_view(string $template, array $data = []): string
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        return $engine->render($template, $data);
+    }
+}
+
+if (!function_exists('safe_include')) {
+    /**
+     * Include a partial template.
+     *
+     * @param string $template The template name
+     * @param array $data Additional data
+     * @return void
+     */
+    function safe_include(string $template, array $data = []): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        $engine->include($template, $data);
+    }
+}
+
+if (!function_exists('safe_escape')) {
+    /**
+     * Escape a value for HTML output.
+     *
+     * @param mixed $value The value to escape
+     * @return mixed Escaped value
+     */
+    function safe_escape($value)
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        return $engine->escape($value);
+    }
+}
+
+if (!function_exists('start_section')) {
+    /**
+     * Start a template section.
+     *
+     * @param string $name The section name
+     * @return void
+     */
+    function start_section(string $name): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        $engine->startSection($name);
+    }
+}
+
+if (!function_exists('end_section')) {
+    /**
+     * End the current section.
+     *
+     * @return void
+     */
+    function end_section(): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        $engine->endSection();
+    }
+}
+
+if (!function_exists('yield_section')) {
+    /**
+     * Yield a section content.
+     *
+     * @param string $name The section name
+     * @param string $default Default content
+     * @return void
+     */
+    function yield_section(string $name, string $default = ''): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        echo $engine->getSection($name, $default);
+    }
+}
+
+if (!function_exists('start_push')) {
+    /**
+     * Start pushing to a stack.
+     *
+     * @param string $name The stack name
+     * @return void
+     */
+    function start_push(string $name): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        $engine->startPush($name);
+    }
+}
+
+if (!function_exists('end_push')) {
+    /**
+     * End pushing to a stack.
+     *
+     * @return void
+     */
+    function end_push(): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        $engine->endPush();
+    }
+}
+
+if (!function_exists('stack')) {
+    /**
+     * Get stack content.
+     *
+     * @param string $name The stack name
+     * @return void
+     */
+    function stack(string $name): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+        echo $engine->getStack($name);
+    }
+}
+
+if (!function_exists('extend_layout')) {
+    /**
+     * Set the layout for the current template.
+     *
+     * @param string $layout The layout name
+     * @param array $data Additional data
+     * @return void
+     */
+    function extend_layout(string $layout, array $data = []): void
+    {
+        /** @var \App\Core\View\SafeTemplateEngine $engine */
+        $engine = app(\App\Core\View\SafeTemplateEngine::class);
+
+        // Используем reflection для доступа к protected методу
+        $reflection = new ReflectionClass($engine);
+        $method = $reflection->getMethod('layout');
+        $method->setAccessible(true);
+        $method->invoke($engine, $layout, $data);
+    }
+}
+
+// ==================== COMPONENT HELPERS ====================
+
+if (!function_exists('component')) {
+    /**
+     * Render a component.
+     *
+     * @param string $name The component name
+     * @param array $data The component data
+     * @param array $attributes HTML attributes
+     * @return string Rendered component
+     */
+    function component(string $name, array $data = [], array $attributes = []): string
+    {
+        $componentPath = 'components.' . str_replace('.', '/', $name);
+
+        // Добавляем атрибуты в данные
+        $data['attributes'] = $attributes;
+
+        return safe_view($componentPath, $data);
+    }
+}
+
+if (!function_exists('alert_component')) {
+    /**
+     * Render an alert component.
+     *
+     * @param string $message The alert message
+     * @param string $type The alert type (success, danger, warning, info)
+     * @param bool $dismissible Whether the alert is dismissible
+     * @return string Rendered alert
+     */
+    function alert_component(string $message, string $type = 'info', bool $dismissible = true): string
+    {
+        return component('alert', [
+            'message' => $message,
+            'type' => $type,
+            'dismissible' => $dismissible
+        ]);
+    }
+}
+
+if (!function_exists('card_component')) {
+    /**
+     * Render a card component.
+     *
+     * @param string $title The card title
+     * @param string $content The card content
+     * @param array $options Additional options
+     * @return string Rendered card
+     */
+    function card_component(string $title, string $content, array $options = []): string
+    {
+        $defaults = [
+            'icon' => null,
+            'footer' => null,
+            'class' => '',
+            'headerClass' => '',
+            'bodyClass' => '',
+            'footerClass' => ''
+        ];
+
+        $options = array_merge($defaults, $options);
+
+        return component('card', array_merge($options, [
+            'title' => $title,
+            'content' => $content
+        ]));
     }
 }

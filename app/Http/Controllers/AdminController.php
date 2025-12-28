@@ -70,6 +70,20 @@ class AdminController extends Controller
     }
 
     /**
+     * Display the hidden widgets page.
+     *
+     * @return \App\Http\Response The response with the hidden widgets view
+     */
+    public function getHiddenWidgetsPage()
+    {
+        // Проверка аутентификации в middleware
+
+        return $this->view('admin.hidden-widgets', [
+            'title' => 'Скрытые виджеты'
+        ]);
+    }
+
+    /**
      * Save the widget layout.
      *
      * Saves the current widget arrangement to the user's session.

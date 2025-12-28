@@ -7,7 +7,7 @@ namespace App\Core\Providers;
 use App\Core\Container\Container;
 use App\Core\Session\SessionManager;
 use App\Core\Session\SessionInterface;
-use App\Core\View\TemplateEngine;
+use App\Core\View\SafeTemplateEngine;
 use App\Core\Widgets\WidgetManager;
 use App\Core\Widgets\WidgetStorageInterface;
 use App\Core\Widgets\SessionWidgetStorage;
@@ -86,11 +86,6 @@ class AppServiceProvider
             $renderer = $container->get(\App\Core\Widgets\WidgetRendererInterface::class);
             return new \App\Core\Widgets\WidgetManager($storage, $renderer);
         });
-
-        // Регистрируем глобальные функции как устаревшие
-        $this->container->singleton('legacy_functions_registered', function() {
-            return true;
-        });
     }
 
     private function registerDependencies(): void
@@ -113,7 +108,7 @@ class AppServiceProvider
             return \App\Http\Request::createFromGlobals();
         });
 
-        // ControllerFactory
+        // ControllerFactory с зависимостью от SafeTemplateEngine
         $this->container->singleton(\App\Core\ControllerFactory::class, function($container) {
             return new \App\Core\ControllerFactory($container);
         });

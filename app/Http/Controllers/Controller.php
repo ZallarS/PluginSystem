@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 namespace App\Http\Controllers;
-
 use App\Core\View\TemplateEngine;
+use App\Core\View\SafeTemplateEngine;
 use App\Services\AuthService;
 use App\Http\Request;
 use App\Core\Session\SessionInterface;
